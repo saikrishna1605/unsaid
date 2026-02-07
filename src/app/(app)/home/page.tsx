@@ -40,10 +40,10 @@ export default function HomePage() {
     setInputMode(mode);
     setInputValue(mode === 'silence' ? 'silence' : '');
     if (mode === 'silence') {
-      // Automatically submit if silence is chosen
-      const formData = new FormData();
-      formData.append('input', 'silence');
-      formAction(formData);
+      // Use a timeout to ensure React has time to re-render with the hidden input
+      setTimeout(() => {
+        formRef.current?.requestSubmit();
+      }, 0);
     }
   };
 
@@ -63,23 +63,25 @@ export default function HomePage() {
           <form action={formAction} ref={formRef}>
             <CardContent className="p-6">
               <div className="flex items-center justify-around gap-2 mb-6">
-                <Button variant={inputMode === 'text' ? 'secondary' : 'ghost'} onClick={() => handleModeSelect('text')} className="flex-1 flex-col h-20">
+                <Button type="button" variant={inputMode === 'text' ? 'secondary' : 'ghost'} onClick={() => handleModeSelect('text')} className="flex-1 flex-col h-20">
                   <span className="text-xl">A</span>
                   <span>Word</span>
                 </Button>
-                <Button variant={inputMode === 'voice' ? 'secondary' : 'ghost'} onClick={() => handleModeSelect('voice')} className="flex-1 flex-col h-20">
+                <Button type="button" variant={inputMode === 'voice' ? 'secondary' : 'ghost'} onClick={() => handleModeSelect('voice')} className="flex-1 flex-col h-20">
                   <Mic className="h-6 w-6" />
                   <span>Voice</span>
                 </Button>
-                <Button variant={inputMode === 'sign' ? 'secondary' : 'ghost'} onClick={() => handleModeSelect('sign')} className="flex-1 flex-col h-20">
+                <Button type="button" variant={inputMode === 'sign' ? 'secondary' : 'ghost'} onClick={() => handleModeSelect('sign')} className="flex-1 flex-col h-20">
                   <Hand className="h-6 w-6" />
                   <span>Sign</span>
                 </Button>
-                <Button variant={inputMode === 'silence' ? 'secondary' : 'ghost'} onClick={() => handleModeSelect('silence')} className="flex-1 flex-col h-20">
+                <Button type="button" variant={inputMode === 'silence' ? 'secondary' : 'ghost'} onClick={() => handleModeSelect('silence')} className="flex-1 flex-col h-20">
                   <Moon className="h-6 w-6" />
                   <span>Silence</span>
                 </Button>
               </div>
+
+              {inputMode === 'silence' && <input type="hidden" name="input" value="silence" />}
 
               {inputMode && inputMode !== 'silence' && (
                 <div className="relative">
