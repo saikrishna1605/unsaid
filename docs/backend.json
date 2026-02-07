@@ -1,0 +1,480 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the Unsaid/Unheard application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "accessibilityPreferences": {
+          "type": "string",
+          "description": "User's accessibility preferences, stored as a JSON string."
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's role (e.g., Primary user, Supporter/Volunteer)."
+        },
+        "language": {
+          "type": "string",
+          "description": "The user's preferred language."
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "Post": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Post",
+      "type": "object",
+      "description": "Represents a post in the community.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Post entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Post)"
+        },
+        "rawContent": {
+          "type": "string",
+          "description": "The raw content of the post (text, voice, AAC taps, sign clip, camera photo)."
+        },
+        "accessibleAudio": {
+          "type": "string",
+          "description": "Auto-generated audio version of the post."
+        },
+        "captionsFriendly": {
+          "type": "string",
+          "description": "Captions-friendly version of the post."
+        },
+        "easyRead": {
+          "type": "string",
+          "description": "Easy-read version of the post."
+        },
+        "visibility": {
+          "type": "string",
+          "description": "Post visibility (public, supporters-only, private)."
+        }
+      },
+      "required": [
+        "id",
+        "userId"
+      ]
+    },
+    "Comment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Comment",
+      "type": "object",
+      "description": "Represents a comment on a post.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Comment entity."
+        },
+        "postId": {
+          "type": "string",
+          "description": "Reference to Post. (Relationship: Post 1:N Comment)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Comment)"
+        },
+        "content": {
+          "type": "string",
+          "description": "The content of the comment."
+        }
+      },
+      "required": [
+        "id",
+        "postId",
+        "userId"
+      ]
+    },
+    "Reaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Reaction",
+      "type": "object",
+      "description": "Represents a reaction to a post.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Reaction entity."
+        },
+        "postId": {
+          "type": "string",
+          "description": "Reference to Post. (Relationship: Post 1:N Reaction)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Reaction)"
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of reaction (e.g., like, love, support)."
+        }
+      },
+      "required": [
+        "id",
+        "postId",
+        "userId"
+      ]
+    },
+    "HelpRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "HelpRequest",
+      "type": "object",
+      "description": "Represents a user's request for help.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the HelpRequest entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N HelpRequest)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the help needed."
+        },
+        "duration": {
+          "type": "number",
+          "description": "The duration of support needed (in hours)."
+        }
+      },
+      "required": [
+        "id",
+        "userId"
+      ]
+    },
+    "VolunteerOffer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VolunteerOffer",
+      "type": "object",
+      "description": "Represents a volunteer's offer to provide help.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the VolunteerOffer entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N VolunteerOffer)"
+        },
+        "helpRequestId": {
+          "type": "string",
+          "description": "Reference to HelpRequest. (Relationship: HelpRequest 1:N VolunteerOffer)"
+        },
+        "availability": {
+          "type": "string",
+          "description": "Volunteer's availability to offer support."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "helpRequestId"
+      ]
+    },
+    "Session": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Session",
+      "type": "object",
+      "description": "Represents a support session between a user and a volunteer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Session entity."
+        },
+        "helpRequestId": {
+          "type": "string",
+          "description": "Reference to HelpRequest. (Relationship: HelpRequest 1:1 Session)"
+        },
+        "volunteerOfferId": {
+          "type": "string",
+          "description": "Reference to VolunteerOffer. (Relationship: VolunteerOffer 1:1 Session)"
+        },
+        "chatLog": {
+          "type": "string",
+          "description": "The chat log of the session, stored as a JSON string."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Shared notes from the session."
+        },
+        "summary": {
+          "type": "string",
+          "description": "The session summary."
+        }
+      },
+      "required": [
+        "id",
+        "helpRequestId",
+        "volunteerOfferId"
+      ]
+    },
+    "Lesson": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Lesson",
+      "type": "object",
+      "description": "Represents a learning lesson.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Lesson entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the lesson."
+        },
+        "text": {
+          "type": "string",
+          "description": "The text content of the lesson."
+        },
+        "audio": {
+          "type": "string",
+          "description": "The audio content of the lesson (URL or file path)."
+        },
+        "captions": {
+          "type": "string",
+          "description": "The captions for the lesson."
+        },
+        "easyRead": {
+          "type": "string",
+          "description": "The easy-read version of the lesson."
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "NewsArticle": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NewsArticle",
+      "type": "object",
+      "description": "Represents a news article.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the NewsArticle entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the news article."
+        },
+        "content": {
+          "type": "string",
+          "description": "The original content of the news article."
+        },
+        "audioSummary": {
+          "type": "string",
+          "description": "The audio summary of the news article."
+        },
+        "easyReadBullets": {
+          "type": "string",
+          "description": "Easy-read bullet points of the news article."
+        },
+        "keyFacts": {
+          "type": "string",
+          "description": "Key facts from the news article."
+        },
+        "signCards": {
+          "type": "string",
+          "description": "Sign cards for the news article."
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles and accessibility preferences.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/posts/{postId}",
+        "definition": {
+          "entityName": "Post",
+          "schema": {
+            "$ref": "#/backend/entities/Post"
+          },
+          "description": "Stores community posts. Includes denormalized 'userId' for authorization independence and 'visibility' field for access control.",
+          "params": [
+            {
+              "name": "postId",
+              "description": "The unique identifier for the post."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/posts/{postId}/comments/{commentId}",
+        "definition": {
+          "entityName": "Comment",
+          "schema": {
+            "$ref": "#/backend/entities/Comment"
+          },
+          "description": "Stores comments on posts.  Parent post ID is specified in document. Includes denormalized 'userId' for authorization independence.",
+          "params": [
+            {
+              "name": "postId",
+              "description": "The unique identifier for the post."
+            },
+            {
+              "name": "commentId",
+              "description": "The unique identifier for the comment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/posts/{postId}/reactions/{reactionId}",
+        "definition": {
+          "entityName": "Reaction",
+          "schema": {
+            "$ref": "#/backend/entities/Reaction"
+          },
+          "description": "Stores reactions to posts. Parent post ID is specified in document. Includes denormalized 'userId' for authorization independence.",
+          "params": [
+            {
+              "name": "postId",
+              "description": "The unique identifier for the post."
+            },
+            {
+              "name": "reactionId",
+              "description": "The unique identifier for the reaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/help_requests/{helpRequestId}",
+        "definition": {
+          "entityName": "HelpRequest",
+          "schema": {
+            "$ref": "#/backend/entities/HelpRequest"
+          },
+          "description": "Stores user's help requests. Path-based ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "helpRequestId",
+              "description": "The unique identifier for the help request."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/volunteer_offers/{volunteerOfferId}",
+        "definition": {
+          "entityName": "VolunteerOffer",
+          "schema": {
+            "$ref": "#/backend/entities/VolunteerOffer"
+          },
+          "description": "Offers from volunteers.",
+          "params": [
+            {
+              "name": "volunteerOfferId",
+              "description": "The unique identifier for the volunteer offer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/sessions/{sessionId}",
+        "definition": {
+          "entityName": "Session",
+          "schema": {
+            "$ref": "#/backend/entities/Session"
+          },
+          "description": "Stores support sessions between users and volunteers.",
+          "params": [
+            {
+              "name": "sessionId",
+              "description": "The unique identifier for the session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/lessons/{lessonId}",
+        "definition": {
+          "entityName": "Lesson",
+          "schema": {
+            "$ref": "#/backend/entities/Lesson"
+          },
+          "description": "Stores learning lessons.",
+          "params": [
+            {
+              "name": "lessonId",
+              "description": "The unique identifier for the lesson."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/news_articles/{newsArticleId}",
+        "definition": {
+          "entityName": "NewsArticle",
+          "schema": {
+            "$ref": "#/backend/entities/NewsArticle"
+          },
+          "description": "Stores news articles.",
+          "params": [
+            {
+              "name": "newsArticleId",
+              "description": "The unique identifier for the news article."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "AdminRole",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Marks a user as an administrator.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support the 'Unsaid/Unheard' application's accessibility-focused features and collaborative environment. It prioritizes authorization independence, clarity, and scalability by using denormalization and structural segregation.  The data structure leverages path-based ownership for user-specific data and membership maps for collaborative data.  \n\n*   **Authorization Independence:** Achieved through denormalization. For example, the 'Post' collection includes the 'userId' field to avoid needing to fetch the User document to determine ownership.  This approach is applied consistently across collections where authorization depends on related entities.\n*   **Structural Segregation:** Different data types with different access control requirements are stored in separate collections. User-specific data (e.g., user profiles, help requests) are stored under the `/users/{userId}` path, while community posts are stored in the root collection `/posts`. This segregation simplifies security rules and improves query performance.\n*   **QAPs (Rules are not Filters):** Secured list operations are enabled through structural segregation and the membership model. For example, listing public posts in `/posts` is secure because all documents in that collection have public visibility.  The 'visibility' field within the 'Post' entity also allows for filtering posts based on their intended audience (public, supporters-only, private).  For volunteer offers, the `helpRequestId` field allows listing offers related to a specific help request. Using roles stored directly within the User document in combination with user-owned subcollections will improve the security and performance of queries since the rule engine does not need to do a collection scan to determine authorization. The database includes global roles in the `/roles_admin/{uid}` collection, in order to support privileged operations for platform administrators."
+  }
+}
