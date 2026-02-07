@@ -1,11 +1,11 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useFormStatus } from 'react-dom';
 import { getReflection } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useActionState } from 'react';
 import { Mic, Hand, Moon, Send, Loader2, Sparkles } from 'lucide-react';
 
 const initialState = {
@@ -23,7 +23,7 @@ function SubmitButton() {
 }
 
 export default function HomePage() {
-  const [state, formAction] = useFormState(getReflection, initialState);
+  const [state, formAction] = useActionState(getReflection, initialState);
   const [inputMode, setInputMode] = useState<'text' | 'voice' | 'sign' | 'silence' | null>(null);
   const [inputValue, setInputValue] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
