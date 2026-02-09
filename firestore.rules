@@ -95,21 +95,6 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
 
       /**
-       * @description A user can manage their own help requests.
-       * @path /users/{userId}/help_requests/{helpRequestId}
-       * @allow (create) A user creates a new help request under their own profile: auth.uid === userId.
-       * @deny (list) A user tries to list another user's help requests: auth.uid !== userId.
-       * @principle Enforces strict ownership of data within a user's private subcollection.
-       */
-      match /help_requests/{helpRequestId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isOwner(userId) && request.resource.data.userId == userId;
-        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
        * @description A user can manage their own chat history.
        * @path /users/{userId}/chats/{chatId}
        * @allow (create) A user starts a new chat, creating a document under their own UID.
@@ -139,8 +124,8 @@ service cloud.firestore {
     match /posts/{postId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow create: if isSignedIn() && isDocumentOwner(request.resource.data);
-      allow update: if resource != null && isDocumentOwner(resource.data) && request.resource.data.userId == resource.data.userId;
+      allow create: if isSignedIn() && isDocumentOwner(request.resource.data) && 'createdAt' in request.resource.data;
+      allow update: if resource != null && isDocumentOwner(resource.data) && request.resource.data.userId == resource.data.userId && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if resource != null && isDocumentOwner(resource.data);
 
       /**
@@ -177,6 +162,21 @@ service cloud.firestore {
     // ----------------------------------------------------------------------
     // Help & Support System
     // ----------------------------------------------------------------------
+    
+    /**
+     * @description Any signed-in user can view or create help requests, but only the author can manage their own.
+     * @path /help_requests/{helpRequestId}
+     * @allow (list) A signed-in user lists all available help requests.
+     * @deny (update) A user attempts to modify a request they did not create.
+     * @principle Implements a "Public Read, Owner-Only Write" pattern for a public request board.
+     */
+    match /help_requests/{helpRequestId} {
+        allow get: if isSignedIn();
+        allow list: if isSignedIn();
+        allow create: if isSignedIn() && isDocumentOwner(request.resource.data) && 'createdAt' in request.resource.data;
+        allow update: if resource != null && isDocumentOwner(resource.data) && request.resource.data.userId == resource.data.userId && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if resource != null && isDocumentOwner(resource.data);
+    }
 
     /**
      * @description Any signed-in user can view volunteer offers, but only the author can manage their own offer.
@@ -224,8 +224,8 @@ service cloud.firestore {
     match /lessons/{lessonId} {
       allow get: if true;
       allow list: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
+      allow create: if isAdmin() && 'track' in request.resource.data && 'title' in request.resource.data;
+      allow update: if isAdmin() && resource != null && 'track' in request.resource.data && 'title' in request.resource.data;
       allow delete: if isAdmin() && resource != null;
     }
 
@@ -264,3 +264,4 @@ service cloud.firestore {
     }
   }
 }
+    

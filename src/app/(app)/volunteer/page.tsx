@@ -1,9 +1,26 @@
+'use client';
+
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { HeartHandshake, Search } from 'lucide-react';
+import { HeartHandshake, Search, Loader2 } from 'lucide-react';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
+
+interface HelpRequest {
+    id: string;
+    description: string;
+    userId: string;
+    createdAt: Timestamp;
+}
 
 export default function VolunteerPage() {
+  const firestore = useFirestore();
+  const requestsQuery = useMemoFirebase(
+      () => firestore ? query(collection(firestore, 'help_requests'), orderBy('createdAt', 'desc')) : null,
+      [firestore]
+  );
+  const { data: requests, isLoading } = useCollection<HelpRequest>(requestsQuery);
+
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
       <Card className="w-full">
@@ -23,29 +40,36 @@ export default function VolunteerPage() {
 
            <div>
                 <h3 className="text-2xl font-semibold text-card-foreground mb-4">Open Requests</h3>
-                <div className="space-y-4">
-                    <Card>
-                        <CardContent className="p-4 flex justify-between items-center">
-                            <div>
-                                <p className="font-semibold">"I need help practicing for a job interview."</p>
-                                <p className="text-sm text-muted-foreground">Request for: Career Skills</p>
-                            </div>
-                            <Button>Offer 1 Hour</Button>
-                        </CardContent>
-                    </Card>
-                     <Card>
-                        <CardContent className="p-4 flex justify-between items-center">
-                            <div>
-                                <p className="font-semibold">"Can someone help me set up my email?"</p>
-                                <p className="text-sm text-muted-foreground">Request for: Digital Skills</p>
-                            </div>
-                            <Button>Offer 1 Hour</Button>
-                        </CardContent>
-                    </Card>
-                </div>
+                {isLoading && (
+                    <div className="flex justify-center py-10">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                )}
+                {!isLoading && requests && requests.length > 0 && (
+                    <div className="space-y-4">
+                        {requests.map(request => (
+                             <Card key={request.id}>
+                                <CardContent className="p-4 flex justify-between items-center">
+                                    <div>
+                                        <p className="font-semibold">"{request.description}"</p>
+                                        <p className="text-sm text-muted-foreground">Request from: User {request.userId.slice(0,6)}</p>
+                                    </div>
+                                    <Button>Offer 1 Hour</Button>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+                 {!isLoading && (!requests || requests.length === 0) && (
+                    <div className="text-center py-16 border-2 border-dashed border-muted-foreground/30 rounded-lg">
+                        <h3 className="text-xl font-semibold text-card-foreground">No open requests right now</h3>
+                        <p className="text-muted-foreground mt-2">Check back later or be the first to request help!</p>
+                    </div>
+                )}
            </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+    

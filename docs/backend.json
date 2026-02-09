@@ -58,11 +58,17 @@
         "visibility": {
           "type": "string",
           "description": "Post visibility (public, supporters-only, private)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of when the post was created."
         }
       },
       "required": [
         "id",
-        "userId"
+        "userId",
+        "createdAt"
       ]
     },
     "Comment": {
@@ -141,11 +147,17 @@
         "duration": {
           "type": "number",
           "description": "The duration of support needed (in hours)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of when the request was created."
         }
       },
       "required": [
         "id",
-        "userId"
+        "userId",
+        "createdAt"
       ]
     },
     "VolunteerOffer": {
@@ -240,10 +252,16 @@
         "easyRead": {
           "type": "string",
           "description": "The easy-read version of the lesson."
+        },
+        "track": {
+          "type": "string",
+          "description": "The learning track this lesson belongs to (e.g., 'Digital Skills')."
         }
       },
       "required": [
-        "id"
+        "id",
+        "title",
+        "track"
       ]
     },
     "NewsArticle": {
@@ -433,18 +451,14 @@
         }
       },
       {
-        "path": "/users/{userId}/help_requests/{helpRequestId}",
+        "path": "/help_requests/{helpRequestId}",
         "definition": {
           "entityName": "HelpRequest",
           "schema": {
             "$ref": "#/backend/entities/HelpRequest"
           },
-          "description": "Stores user's help requests. Path-based ownership.",
+          "description": "Stores user's help requests.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
             {
               "name": "helpRequestId",
               "description": "The unique identifier for the help request."
@@ -536,3 +550,4 @@
     "reasoning": "The Firestore data structure is designed to support the 'Unsaid/Unheard' application's accessibility-focused features and collaborative environment. It prioritizes authorization independence, clarity, and scalability by using denormalization and structural segregation.  The data structure leverages path-based ownership for user-specific data and membership maps for collaborative data.  \n\n*   **Authorization Independence:** Achieved through denormalization. For example, the 'Post' collection includes the 'userId' field to avoid needing to fetch the User document to determine ownership.  This approach is applied consistently across collections where authorization depends on related entities.\n*   **Structural Segregation:** Different data types with different access control requirements are stored in separate collections. User-specific data (e.g., user profiles, help requests) are stored under the `/users/{userId}` path, while community posts are stored in the root collection `/posts`. This segregation simplifies security rules and improves query performance.\n*   **QAPs (Rules are not Filters):** Secured list operations are enabled through structural segregation and the membership model. For example, listing public posts in `/posts` is secure because all documents in that collection have public visibility.  The 'visibility' field within the 'Post' entity also allows for filtering posts based on their intended audience (public, supporters-only, private).  For volunteer offers, the `helpRequestId` field allows listing offers related to a specific help request. Using roles stored directly within the User document in combination with user-owned subcollections will improve the security and performance of queries since the rule engine does not need to do a collection scan to determine authorization. The database includes global roles in the `/roles_admin/{uid}` collection, in order to support privileged operations for platform administrators."
   }
 }
+    
