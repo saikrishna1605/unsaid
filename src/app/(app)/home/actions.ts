@@ -1,36 +1,52 @@
 'use server';
 
-import { dailyReflection } from '@/ai/flows/daily-reflection-ai';
-import { z } from 'zod';
+import { chat, ChatInputSchema } from '@/ai/flows/chat-agent';
 
-const schema = z.object({
-  input: z.string().min(1, { message: 'Input cannot be empty.' }),
-});
+// Define the shape of the state for useActionState
+export interface ChatState {
+  messages: { role: 'user' | 'model'; content: string }[];
+  error: string | null;
+}
 
-export async function getReflection(
-  currentState: { reflection: string; error: string | null },
+export async function sendMessage(
+  prevState: ChatState,
   formData: FormData
-) {
-  const validatedFields = schema.safeParse({
-    input: formData.get('input'),
+): Promise<ChatState> {
+  
+  const validatedFields = ChatInputSchema.pick({ message: true }).safeParse({
+    message: formData.get('message'),
   });
 
   if (!validatedFields.success) {
     return {
-      reflection: '',
-      error: validatedFields.error.flatten().fieldErrors.input?.[0] || 'Invalid input.',
+      ...prevState,
+      error: validatedFields.error.flatten().fieldErrors.message?.[0] || 'Invalid message.',
     };
   }
   
-  const input = validatedFields.data.input;
+  const userMessage = validatedFields.data.message;
+
+  // Add user message to the state immediately for optimistic UI update
+  const newMessages = [...prevState.messages, { role: 'user' as const, content: userMessage }];
 
   try {
-    // Adding a slight delay to show the loading spinner
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const result = await dailyReflection({ input });
-    return { reflection: result.reflection, error: null };
+    const result = await chat({
+      // Pass previous messages (excluding the last one if it's from the model) as history
+      history: prevState.messages,
+      message: userMessage,
+    });
+    
+    // Add the model's response
+    return {
+      messages: [...newMessages, { role: 'model' as const, content: result.response }],
+      error: null,
+    };
   } catch (e) {
     console.error(e);
-    return { reflection: '', error: 'I am here to listen, but I had a little trouble understanding. Could we try again?' };
+    const errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred.';
+    return { 
+        ...prevState, // Return previous state on error
+        error: `Sorry, I encountered an issue. ${errorMessage}` 
+    };
   }
 }
