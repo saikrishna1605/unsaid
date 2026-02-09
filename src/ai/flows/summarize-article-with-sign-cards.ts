@@ -41,18 +41,12 @@ const summarizeArticlePrompt = ai.definePrompt({
   Article Text: {{{articleText}}}
 
   Instructions:
-  1. Create an audio summary of the article.
+  1. Create a text summary of the article, suitable for text-to-speech. This will be the value for 'audioSummary'.
   2. Extract key facts from the article.
   3. Generate easy-to-read bullet points summarizing the article.
   4. Generate sign cards (textual representation or links) related to the article content.
 
-  Output the response in the following JSON format:
-  {
-    "audioSummary": "",
-    "easyReadBullets": [""],
-    "keyFacts": [""],
-    "signCards": [""]
-  }`,
+  Output the response in a valid JSON format that matches the provided schema.`,
 });
 
 async function textToSpeech(text: string): Promise<string> {
@@ -114,25 +108,19 @@ const summarizeArticleWithSignCardsFlow = ai.defineFlow(
   async input => {
     const {output} = await summarizeArticlePrompt(input);
 
-    // Since the prompt asks for a JSON output, but Genkit can't guarantee it,
-    // we need to parse the output to ensure it matches the schema.
     if (!output) {
       throw new Error('No output from summarizeArticlePrompt');
     }
 
-    let parsedOutput: SummarizeArticleWithSignCardsOutput;
-    try {
-      parsedOutput = JSON.parse(output.toString());
-    } catch (e) {
-      console.error("Failed to parse JSON output: ", output);
-      throw e;
-    }
+    // The output from a prompt with an outputSchema is already a parsed JS object.
+    // The `audioSummary` field at this point is the text we want to convert to speech.
+    const textForAudio = output.audioSummary;
 
-    const audioSummary = await textToSpeech(parsedOutput.audioSummary);
+    const audioSummary = await textToSpeech(textForAudio);
 
     return {
-      ...parsedOutput,
-      audioSummary,
+      ...output,
+      audioSummary, // Replace the text summary with the audio data URI
     };
   }
 );
