@@ -18,14 +18,14 @@ const ChatMessageSchema = z.object({
 });
 
 // Input schema for the main chat flow
-export const ChatInputSchema = z.object({
+const ChatInputSchema = z.object({
   history: z.array(ChatMessageSchema),
   message: z.string().describe('The latest message from the user.'),
 });
 export type ChatInput = z.infer<typeof ChatInputSchema>;
 
 // Output schema for the main chat flow
-export const ChatOutputSchema = z.object({
+const ChatOutputSchema = z.object({
   response: z.string().describe('The AI agent\'s response.'),
 });
 export type ChatOutput = z.infer<typeof ChatOutputSchema>;

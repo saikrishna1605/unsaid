@@ -1,6 +1,7 @@
 'use server';
 
-import { chat, ChatInputSchema } from '@/ai/flows/chat-agent';
+import { chat } from '@/ai/flows/chat-agent';
+import { z } from 'zod';
 
 // Define the shape of the state for useActionState
 export interface ChatState {
@@ -8,12 +9,16 @@ export interface ChatState {
   error: string | null;
 }
 
+const SendMessageSchema = z.object({
+  message: z.string(),
+});
+
 export async function sendMessage(
   prevState: ChatState,
   formData: FormData
 ): Promise<ChatState> {
   
-  const validatedFields = ChatInputSchema.pick({ message: true }).safeParse({
+  const validatedFields = SendMessageSchema.safeParse({
     message: formData.get('message'),
   });
 
