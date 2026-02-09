@@ -99,7 +99,7 @@ export default function HomePage() {
 
   const handleSendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!user || !chatId || isSending) return;
+    if (!user || isSending) return;
 
     const formData = new FormData(event.currentTarget);
     const messageContent = formData.get('message') as string;
@@ -111,32 +111,49 @@ export default function HomePage() {
     setIsSending(true);
 
     const userMessage: ChatMessage = { role: 'user', content: messageContent };
-    const currentMessages = currentChat?.messages || [];
-    const historyForAi = [...currentMessages];
-    const messagesWithUser = [...currentMessages, userMessage];
-    const chatRef = doc(firestore, 'users', user.uid, 'chats', chatId);
 
     try {
-      const isNewChat = currentMessages.length === 0;
-      await updateDoc(chatRef, {
-        messages: messagesWithUser,
-        ...(isNewChat && { title: messageContent }),
-      });
+        let activeChatId = chatId;
+        
+        // If this is the first message of a new chat
+        if (!activeChatId) {
+            const newChatData = {
+                title: messageContent,
+                userId: user.uid,
+                createdAt: serverTimestamp(),
+                messages: [userMessage], // Create chat with the first message
+            };
+            const chatsCollection = collection(firestore, 'users', user.uid, 'chats');
+            const newDocRef = await addDoc(chatsCollection, newChatData);
+            activeChatId = newDocRef.id;
+            
+            router.push(`/home?chatId=${activeChatId}`);
+            
+            const result = await chat({ history: [], message: messageContent });
+            const modelMessage: ChatMessage = { role: 'model', content: result.response };
+            
+            await updateDoc(newDocRef, { messages: [userMessage, modelMessage] });
 
-      const result = await chat({ history: historyForAi, message: messageContent });
-      const modelMessage: ChatMessage = { role: 'model', content: result.response };
-      
-      const finalMessages = [...messagesWithUser, modelMessage];
-      await updateDoc(chatRef, { messages: finalMessages });
+        } else { // This is an existing chat
+            const chatRef = doc(firestore, 'users', user.uid, 'chats', activeChatId);
+            
+            const historyForAi = currentChat?.messages || [];
+            const messagesWithUser = [...historyForAi, userMessage];
+
+            await updateDoc(chatRef, { messages: messagesWithUser });
+
+            const result = await chat({ history: historyForAi, message: messageContent });
+            const modelMessage: ChatMessage = { role: 'model', content: result.response };
+            
+            await updateDoc(chatRef, { messages: [...messagesWithUser, modelMessage] });
+        }
     } catch (e) {
-      console.error(e);
-      // Re-add user message to text area on error
-      if (textAreaRef.current) {
-          textAreaRef.current.value = messageContent;
-      }
-      // You might want to add an error message to the UI
+        console.error(e);
+        if (textAreaRef.current) {
+            textAreaRef.current.value = messageContent;
+        }
     } finally {
-      setIsSending(false);
+        setIsSending(false);
     }
   };
 
@@ -217,22 +234,20 @@ export default function HomePage() {
                         )}
                     </div>
                 </ScrollArea>
-                {chatId && (
-                     <div className="p-4 bg-card border-t">
-                        <form onSubmit={handleSendMessage} ref={formRef} className="flex items-center gap-2">
-                            <Textarea
-                                ref={textAreaRef}
-                                name="message"
-                                placeholder="Type your message here..."
-                                className="flex-1 resize-none bg-background"
-                                rows={1}
-                                onKeyDown={handleKeyDown}
-                                disabled={isSending}
-                            />
-                            <SubmitButton isSending={isSending} />
-                        </form>
-                    </div>
-                )}
+                <div className="p-4 bg-card border-t">
+                    <form onSubmit={handleSendMessage} ref={formRef} className="flex items-center gap-2">
+                        <Textarea
+                            ref={textAreaRef}
+                            name="message"
+                            placeholder="Type your message here..."
+                            className="flex-1 resize-none bg-background"
+                            rows={1}
+                            onKeyDown={handleKeyDown}
+                            disabled={isSending || !user}
+                        />
+                        <SubmitButton isSending={isSending} />
+                    </form>
+                </div>
             </div>
         </SidebarInset>
       </div>
