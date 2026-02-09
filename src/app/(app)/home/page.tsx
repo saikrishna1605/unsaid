@@ -4,14 +4,15 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useUser, useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, addDoc, updateDoc, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, serverTimestamp, query, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
 import { chat } from '@/ai/flows/chat-agent';
+import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Loader2, Bot, User, Plus, MessageSquare, Menu, Mic, Paperclip } from 'lucide-react';
+import { Send, Loader2, Bot, User, Plus, MessageSquare, Menu, Mic, Paperclip, Trash2 } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -22,7 +23,9 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
+  SidebarMenuAction,
 } from '@/components/ui/sidebar';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 
 interface ChatMessage {
@@ -52,6 +55,7 @@ export default function HomePage() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const chatId = searchParams.get('chatId');
+  const { toast } = useToast();
 
   const [isSending, setIsSending] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -95,6 +99,35 @@ export default function HomePage() {
       console.error("Error creating new chat:", error);
     }
   };
+  
+  const handleDeleteChat = async (e: React.MouseEvent, chatIdToDelete: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!user || !firestore) return;
+
+    if (window.confirm('Are you sure you want to delete this chat?')) {
+        try {
+            const chatRef = doc(firestore, 'users', user.uid, 'chats', chatIdToDelete);
+            await deleteDoc(chatRef);
+    
+            if (chatId === chatIdToDelete) {
+                router.push('/home');
+            }
+    
+            toast({
+                title: "Chat Deleted",
+                description: "The conversation has been removed.",
+            });
+        } catch (error) {
+            console.error("Error deleting chat:", error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Could not delete the chat.",
+            });
+        }
+    }
+  };
 
   const handleSendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -114,13 +147,12 @@ export default function HomePage() {
     try {
         let activeChatId = chatId;
         
-        // If this is the first message of a new chat
         if (!activeChatId) {
             const newChatData = {
-                title: messageContent,
+                title: messageContent.substring(0, 30),
                 userId: user.uid,
                 createdAt: serverTimestamp(),
-                messages: [userMessage], // Create chat with the first message
+                messages: [userMessage],
             };
             const chatsCollection = collection(firestore, 'users', user.uid, 'chats');
             const newDocRef = await addDoc(chatsCollection, newChatData);
@@ -133,7 +165,7 @@ export default function HomePage() {
             
             await updateDoc(newDocRef, { messages: [userMessage, modelMessage] });
 
-        } else { // This is an existing chat
+        } else {
             const chatRef = doc(firestore, 'users', user.uid, 'chats', activeChatId);
             
             const historyForAi = currentChat?.messages || [];
@@ -192,6 +224,20 @@ export default function HomePage() {
                         <span>{chatItem.title}</span>
                       </Link>
                     </SidebarMenuButton>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                         <SidebarMenuAction
+                            onClick={(e) => handleDeleteChat(e, chatItem.id)}
+                            showOnHover={true}
+                            aria-label="Delete chat"
+                          >
+                          <Trash2 />
+                        </SidebarMenuAction>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" align="center">
+                        <p>Delete chat</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
