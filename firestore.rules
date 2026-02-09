@@ -8,8 +8,8 @@
  *
  * Data Structure:
  * The data is organized into several top-level collections. User-specific private
- * data, such as help requests, is nested under the `/users/{userId}` path to
- * leverage path-based security. Publicly readable content like posts, lessons,
+ * data, such as help requests and chat histories, is nested under the `/users/{userId}`
+ * path to leverage path-based security. Publicly readable content like posts, lessons,
  * and news articles reside in their own top-level collections. A special
  * `/roles_admin` collection is used to manage administrator privileges.
  *
@@ -107,6 +107,21 @@ service cloud.firestore {
         allow create: if isOwner(userId) && request.resource.data.userId == userId;
         allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
         allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description A user can manage their own chat history.
+       * @path /users/{userId}/chats/{chatId}
+       * @allow (create) A user starts a new chat, creating a document under their own UID.
+       * @deny (list) A user tries to list another user's chats. (list is allowed, but only for the owner)
+       * @principle Enforces strict ownership of chat data.
+       */
+      match /chats/{chatId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && resource.data.userId == userId;
+        allow delete: if isOwner(userId);
       }
     }
 

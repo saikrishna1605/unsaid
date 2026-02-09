@@ -1,7 +1,6 @@
 {
   "entities": {
     "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
       "description": "Represents a user in the Unsaid/Unheard application.",
@@ -28,7 +27,6 @@
       ]
     },
     "Post": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Post",
       "type": "object",
       "description": "Represents a post in the community.",
@@ -68,7 +66,6 @@
       ]
     },
     "Comment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Comment",
       "type": "object",
       "description": "Represents a comment on a post.",
@@ -97,7 +94,6 @@
       ]
     },
     "Reaction": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Reaction",
       "type": "object",
       "description": "Represents a reaction to a post.",
@@ -126,7 +122,6 @@
       ]
     },
     "HelpRequest": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "HelpRequest",
       "type": "object",
       "description": "Represents a user's request for help.",
@@ -154,7 +149,6 @@
       ]
     },
     "VolunteerOffer": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "VolunteerOffer",
       "type": "object",
       "description": "Represents a volunteer's offer to provide help.",
@@ -183,7 +177,6 @@
       ]
     },
     "Session": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Session",
       "type": "object",
       "description": "Represents a support session between a user and a volunteer.",
@@ -220,7 +213,6 @@
       ]
     },
     "Lesson": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Lesson",
       "type": "object",
       "description": "Represents a learning lesson.",
@@ -255,7 +247,6 @@
       ]
     },
     "NewsArticle": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "NewsArticle",
       "type": "object",
       "description": "Represents a news article.",
@@ -292,6 +283,53 @@
       "required": [
         "id"
       ]
+    },
+    "Chat": {
+      "title": "Chat",
+      "type": "object",
+      "description": "Represents a single chat session between a user and the AI.",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of when the chat was created."
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "model"
+                ]
+              },
+              "content": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "role",
+              "content"
+            ]
+          },
+          "description": "The history of messages in the chat."
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "createdAt",
+        "messages"
+      ]
     }
   },
   "auth": {
@@ -314,6 +352,26 @@
             {
               "name": "userId",
               "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/chats/{chatId}",
+        "definition": {
+          "entityName": "Chat",
+          "schema": {
+            "$ref": "#/backend/entities/Chat"
+          },
+          "description": "Stores individual chat sessions for each user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "chatId",
+              "description": "The unique identifier for the chat session."
             }
           ]
         }
