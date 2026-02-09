@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Loader2, Bot, User, Plus, MessageSquare, Menu } from 'lucide-react';
+import { Send, Loader2, Bot, User, Plus, MessageSquare, Menu, Mic, Paperclip } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -24,7 +24,6 @@ import {
   SidebarInset,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
-import { Card } from '@/components/ui/card';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -51,7 +50,7 @@ export default function HomePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const chatId = searchParams.get('chatId');
 
   const [isSending, setIsSending] = useState(false);
@@ -99,7 +98,7 @@ export default function HomePage() {
 
   const handleSendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!user || isSending) return;
+    if (!user || isSending || isUserLoading) return;
 
     const formData = new FormData(event.currentTarget);
     const messageContent = formData.get('message') as string;
@@ -163,6 +162,12 @@ export default function HomePage() {
       formRef.current?.requestSubmit();
     }
   };
+
+  const placeholderText = isUserLoading
+    ? "Connecting..."
+    : !user
+    ? "Authenticating..."
+    : "Type your message here...";
 
   return (
     <SidebarProvider>
@@ -236,15 +241,23 @@ export default function HomePage() {
                 </ScrollArea>
                 <div className="p-4 bg-card border-t">
                     <form onSubmit={handleSendMessage} ref={formRef} className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
+                            <Paperclip className="h-5 w-5" />
+                            <span className="sr-only">Attach file</span>
+                        </Button>
                         <Textarea
                             ref={textAreaRef}
                             name="message"
-                            placeholder="Type your message here..."
+                            placeholder={placeholderText}
                             className="flex-1 resize-none bg-background"
                             rows={1}
                             onKeyDown={handleKeyDown}
-                            disabled={isSending || !user}
+                            disabled={isSending || isUserLoading || !user}
                         />
+                        <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
+                            <Mic className="h-5 w-5" />
+                            <span className="sr-only">Use voice</span>
+                        </Button>
                         <SubmitButton isSending={isSending} />
                     </form>
                 </div>
