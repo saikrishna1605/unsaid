@@ -10,3 +10,4 @@ import '@/ai/flows/read-text-from-image.ts';
 import '@/ai/flows/transcribe-audio.ts';
 import '@/ai/flows/interpret-sign-language.ts';
 import '@/ai/flows/describe-surroundings.ts';
+import '@/ai/flows/generate-lesson-quiz.ts';

@@ -54,14 +54,16 @@ export default function TrackPage() {
                     {!isLoading && lessons && lessons.length > 0 && (
                         <div className="space-y-4">
                             {lessons.map(lesson => (
-                                <Card key={lesson.id} className="hover:bg-muted/50">
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">{lesson.title}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-muted-foreground line-clamp-2">{lesson.text}</p>
-                                    </CardContent>
-                                </Card>
+                                <Link key={lesson.id} href={`/learn/${trackSlug}/${lesson.id}`}>
+                                    <Card className="hover:bg-muted/50 transition-colors">
+                                        <CardHeader>
+                                            <CardTitle className="text-lg">{lesson.title}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-muted-foreground line-clamp-2">{lesson.text}</p>
+                                        </CardContent>
+                                    </Card>
+                                </Link>
                             ))}
                         </div>
                     )}
