@@ -252,7 +252,7 @@ export default function HomePage() {
         <SidebarInset className="flex-1 flex flex-col">
             <div className="flex-1 flex flex-col overflow-hidden">
                 <ScrollArea className="flex-1" ref={scrollAreaRef}>
-                    <div className="w-full max-w-4xl mx-auto p-6">
+                    <div className="p-6">
                       <div className="space-y-6">
                           {!chatId ? (
                               <div className="text-center text-muted-foreground pt-16">
@@ -292,29 +292,27 @@ export default function HomePage() {
                       </div>
                     </div>
                 </ScrollArea>
-                <div className="p-4 border-t">
-                  <div className="max-w-4xl mx-auto">
-                      <form onSubmit={handleSendMessage} ref={formRef} className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
-                              <Paperclip className="h-5 w-5" />
-                              <span className="sr-only">Attach file</span>
-                          </Button>
-                          <Textarea
-                              ref={textAreaRef}
-                              name="message"
-                              placeholder={placeholderText}
-                              className="flex-1 resize-none bg-background"
-                              rows={1}
-                              onKeyDown={handleKeyDown}
-                              disabled={isSending || isUserLoading || !user}
-                          />
-                          <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
-                              <Mic className="h-5 w-5" />
-                              <span className="sr-only">Use voice</span>
-                          </Button>
-                          <SubmitButton isSending={isSending} />
-                      </form>
-                    </div>
+                <div className="border-t p-6">
+                  <form onSubmit={handleSendMessage} ref={formRef} className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
+                          <Paperclip className="h-5 w-5" />
+                          <span className="sr-only">Attach file</span>
+                      </Button>
+                      <Textarea
+                          ref={textAreaRef}
+                          name="message"
+                          placeholder={placeholderText}
+                          className="flex-1 resize-none bg-background"
+                          rows={1}
+                          onKeyDown={handleKeyDown}
+                          disabled={isSending || isUserLoading || !user}
+                      />
+                      <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
+                          <Mic className="h-5 w-5" />
+                          <span className="sr-only">Use voice</span>
+                      </Button>
+                      <SubmitButton isSending={isSending} />
+                  </form>
                 </div>
             </div>
         </SidebarInset>
