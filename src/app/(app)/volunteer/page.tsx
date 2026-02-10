@@ -40,6 +40,7 @@ export default function VolunteerPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [requestDescription, setRequestDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [offeringHelpId, setOfferingHelpId] = useState<string | null>(null);
 
   const requestsQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'help_requests'), orderBy('createdAt', 'desc')) : null),
@@ -89,6 +90,47 @@ export default function VolunteerPage() {
         setIsSubmitting(false);
       });
   };
+
+  const handleOfferHelp = (helpRequestId: string) => {
+    if (!user || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Error',
+        description: 'You must be logged in to offer help.',
+      });
+      return;
+    }
+    setOfferingHelpId(helpRequestId);
+
+    const newOffer = {
+      userId: user.uid,
+      helpRequestId: helpRequestId,
+      availability: 'pending', // Default status
+      createdAt: serverTimestamp(),
+    };
+
+    const offersCollection = collection(firestore, 'volunteer_offers');
+
+    addDoc(offersCollection, newOffer)
+      .then(() => {
+        toast({
+          title: 'Offer Sent!',
+          description: 'Thank you for offering your help. The user has been notified.',
+        });
+      })
+      .catch((serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: offersCollection.path,
+          operation: 'create',
+          requestResourceData: newOffer,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setOfferingHelpId(null);
+      });
+  };
+
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -162,7 +204,15 @@ export default function VolunteerPage() {
                           Request from: User {request.userId.slice(0, 6)}
                         </p>
                       </div>
-                      <Button>Offer 1 Hour</Button>
+                      <Button
+                        onClick={() => handleOfferHelp(request.id)}
+                        disabled={!user || offeringHelpId === request.id || user.uid === request.userId}
+                      >
+                        {offeringHelpId === request.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : null}
+                        Offer 1 Hour
+                      </Button>
                     </CardContent>
                   </Card>
                 ))}
