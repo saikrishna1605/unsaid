@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useUser, useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, addDoc, updateDoc, serverTimestamp, query, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
 import { chat } from '@/ai/flows/chat-agent';
+import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
@@ -67,6 +68,13 @@ export default function HomePage() {
   // State for image handling
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageData, setImageData] = useState<string | null>(null);
+
+  // State for voice input
+  const [message, setMessage] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const chatsQuery = useMemoFirebase(
     () => (user ? query(collection(firestore, 'users', user.uid, 'chats'), orderBy('createdAt', 'desc')) : null),
@@ -151,16 +159,80 @@ export default function HomePage() {
     event.target.value = ''; // Allow selecting the same file again
   };
 
+  const handleToggleRecording = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    setMessage('');
+    setIsTranscribing(false);
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setIsRecording(true);
+
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        if (audioBlob.size === 0) {
+            console.warn("No audio recorded.");
+            setIsTranscribing(false);
+            return;
+        }
+
+        setIsTranscribing(true);
+
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const audioDataUri = reader.result as string;
+          try {
+            const { text } = await transcribeAudio({ audioDataUri });
+            setMessage(text);
+          } catch (error) {
+            console.error('Error transcribing audio:', error);
+            toast({
+              variant: 'destructive',
+              title: 'Transcription Failed',
+              description: 'Could not transcribe the audio.',
+            });
+          } finally {
+            setIsTranscribing(false);
+          }
+        };
+      };
+      recorder.start();
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Microphone Access Denied',
+        description: 'Please enable microphone permissions in your browser settings.',
+      });
+    }
+  };
+
+
   const handleSendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!user || isSending || isUserLoading) return;
 
-    const formData = new FormData(event.currentTarget);
-    const messageContent = formData.get('message') as string;
+    const messageContent = message;
 
     if (!messageContent.trim() && !imageData) return;
 
-    formRef.current?.reset();
+    setMessage('');
     textAreaRef.current?.focus();
     setIsSending(true);
 
@@ -172,7 +244,6 @@ export default function HomePage() {
 
     const tempImageData = imageData;
     
-    // Clear the input UI immediately
     handleRemoveImage();
 
     try {
@@ -212,9 +283,7 @@ export default function HomePage() {
     } catch (e) {
         console.error(e);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not send message.'})
-        if (textAreaRef.current) {
-            textAreaRef.current.value = messageContent;
-        }
+        setMessage(messageContent);
     } finally {
         setIsSending(false);
     }
@@ -231,6 +300,10 @@ export default function HomePage() {
     ? "Connecting..."
     : !user
     ? "Authenticating..."
+    : isRecording
+    ? "Recording... tap mic to stop"
+    : isTranscribing
+    ? "Transcribing audio..."
     : "Type your message here...";
 
   return (
@@ -278,7 +351,7 @@ export default function HomePage() {
         <SidebarInset className="flex-1 flex flex-col">
             <div className="flex-1 flex flex-col overflow-hidden">
                 <ScrollArea className="flex-1" ref={scrollAreaRef}>
-                    <div className="w-full max-w-4xl mx-auto p-6">
+                    <div className="p-6">
                       <div className="space-y-6">
                           {!chatId ? (
                               <div className="text-center text-muted-foreground pt-16">
@@ -324,7 +397,7 @@ export default function HomePage() {
                     </div>
                 </ScrollArea>
                 <div className="border-t p-4 bg-background">
-                  <div className="w-full max-w-4xl mx-auto">
+                  <div>
                     {imagePreview && (
                         <div className="relative mb-2 w-24">
                             <Image src={imagePreview} alt="Image preview" width={80} height={80} className="rounded-md object-cover aspect-square" />
@@ -340,18 +413,20 @@ export default function HomePage() {
                             <span className="sr-only">Attach file</span>
                           </label>
                         </Button>
-                        <input id="file-upload" type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={isSending || isUserLoading || !user} />
+                        <input id="file-upload" type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={isSending || isUserLoading || !user || isRecording || isTranscribing} />
                         <Textarea
                             ref={textAreaRef}
                             name="message"
                             placeholder={placeholderText}
                             className="flex-1 resize-none bg-background"
                             rows={1}
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            disabled={isSending || isUserLoading || !user}
+                            disabled={isSending || isUserLoading || !user || isRecording || isTranscribing}
                         />
-                        <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user} className="shrink-0">
-                            <Mic className="h-5 w-5" />
+                        <Button variant="ghost" size="icon" type="button" onClick={handleToggleRecording} disabled={isSending || isUserLoading || !user || isTranscribing} className={cn("shrink-0", isRecording && "text-red-500 animate-pulse")}>
+                            {isTranscribing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mic className="h-5 w-5" />}
                             <span className="sr-only">Use voice</span>
                         </Button>
                         <SubmitButton isSending={isSending} />
