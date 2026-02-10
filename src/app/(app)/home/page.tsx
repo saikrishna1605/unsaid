@@ -250,7 +250,7 @@ export default function HomePage() {
           </ScrollArea>
         </Sidebar>
         <SidebarInset className="flex-1 flex flex-col">
-            <div className="flex-1 flex flex-col bg-card overflow-hidden md:m-4 md:rounded-lg md:border md:shadow-lg">
+            <div className="flex-1 flex flex-col overflow-hidden">
                 <ScrollArea className="flex-1" ref={scrollAreaRef}>
                     <div className="w-full max-w-4xl mx-auto p-6">
                       <div className="space-y-6">
@@ -292,7 +292,7 @@ export default function HomePage() {
                       </div>
                     </div>
                 </ScrollArea>
-                <div className="p-4 bg-card border-t">
+                <div className="p-4 border-t">
                   <div className="max-w-4xl mx-auto">
                       <form onSubmit={handleSendMessage} ref={formRef} className="flex items-center gap-2">
                           <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
