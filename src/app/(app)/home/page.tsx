@@ -209,22 +209,21 @@ export default function HomePage() {
 
   return (
     <SidebarProvider>
-      <div className="h-[calc(100vh-8rem)] flex flex-col md:flex-row">
-        <Sidebar className="w-full md:w-auto flex flex-col border-b md:border-r md:border-b-0">
+      <div className="h-full flex flex-col md:flex-row">
+        <Sidebar collapsible="icon" className="flex flex-col border-b md:border-r md:border-b-0">
           <SidebarHeader className="flex items-center justify-between p-2">
-            <Button variant="outline" className="w-full justify-start" onClick={handleNewChat}>
-              <Plus className="mr-2 h-4 w-4" /> New Chat
-            </Button>
-            <div className="md:hidden ml-2">
-               <SidebarTrigger />
-            </div>
+             <SidebarMenuButton variant="outline" className="w-full justify-start" onClick={handleNewChat} tooltip="New Chat">
+              <Plus />
+              <span>New Chat</span>
+            </SidebarMenuButton>
+            <SidebarTrigger className="ml-2" />
           </SidebarHeader>
           <ScrollArea className="flex-1">
             <SidebarContent>
               <SidebarMenu>
                 {chatHistories?.map((chatItem) => (
                   <SidebarMenuItem key={chatItem.id}>
-                    <SidebarMenuButton asChild isActive={chatId === chatItem.id} className="truncate">
+                    <SidebarMenuButton asChild isActive={chatId === chatItem.id} className="truncate" tooltip={chatItem.title}>
                       <Link href={`/home?chatId=${chatItem.id}`}>
                         <MessageSquare />
                         <span>{chatItem.title}</span>
@@ -252,66 +251,70 @@ export default function HomePage() {
         </Sidebar>
         <SidebarInset className="flex-1 flex flex-col">
             <div className="flex-1 flex flex-col bg-card overflow-hidden md:m-4 md:rounded-lg md:border md:shadow-lg">
-                <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
-                    <div className="space-y-6">
-                        {!chatId ? (
-                            <div className="text-center text-muted-foreground pt-16">
-                                <Bot className="mx-auto h-12 w-12" />
-                                <h2 className="text-2xl font-semibold mt-4">Welcome back, {userProfile?.name || 'friend'}!</h2>
-                                <p className="mt-2">Select a conversation or start a new one to begin.</p>
-                            </div>
-                        ) : isChatLoading ? (
-                            <div className="flex justify-center items-center h-full pt-16">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            </div>
-                        ) : (
-                          <>
-                            {currentChat?.messages.map((message, index) => (
-                                <div
-                                    key={index}
-                                    className={cn('flex items-start gap-4', message.role === 'user' ? 'justify-end' : 'justify-start')}
-                                >
-                                    {message.role === 'model' && <Avatar className="h-9 w-9 border"><AvatarFallback><Bot /></AvatarFallback></Avatar>}
-                                    <div className={cn('max-w-md lg:max-w-2xl rounded-lg px-4 py-3 text-card-foreground shadow', message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
-                                        <p className="whitespace-pre-wrap">{message.content}</p>
-                                    </div>
-                                    {message.role === 'user' && <Avatar className="h-9 w-9 border"><AvatarFallback>{userProfile?.name?.slice(0,2).toUpperCase() || <User />}</AvatarFallback></Avatar>}
-                                </div>
-                            ))}
-                            {isSending && currentChat?.messages[currentChat.messages.length - 1]?.role === 'user' && (
-                                <div className="flex items-start gap-4 justify-start">
-                                    <Avatar className="h-9 w-9 border"><AvatarFallback><Bot /></AvatarFallback></Avatar>
-                                    <div className="max-w-md lg:max-w-2xl rounded-lg px-4 py-3 bg-muted shadow flex items-center space-x-2">
-                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                                        <span className="text-muted-foreground text-sm">Thinking...</span>
-                                    </div>
-                                </div>
-                            )}
-                          </>
-                        )}
+                <ScrollArea className="flex-1" ref={scrollAreaRef}>
+                    <div className="w-full max-w-4xl mx-auto p-6">
+                      <div className="space-y-6">
+                          {!chatId ? (
+                              <div className="text-center text-muted-foreground pt-16">
+                                  <Bot className="mx-auto h-12 w-12" />
+                                  <h2 className="text-2xl font-semibold mt-4">Welcome back, {userProfile?.name || 'friend'}!</h2>
+                                  <p className="mt-2">Select a conversation or start a new one to begin.</p>
+                              </div>
+                          ) : isChatLoading ? (
+                              <div className="flex justify-center items-center h-full pt-16">
+                                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                              </div>
+                          ) : (
+                            <>
+                              {currentChat?.messages.map((message, index) => (
+                                  <div
+                                      key={index}
+                                      className={cn('flex items-start gap-4', message.role === 'user' ? 'justify-end' : 'justify-start')}
+                                  >
+                                      {message.role === 'model' && <Avatar className="h-9 w-9 border"><AvatarFallback><Bot /></AvatarFallback></Avatar>}
+                                      <div className={cn('max-w-md lg:max-w-2xl rounded-lg px-4 py-3 text-card-foreground shadow', message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
+                                          <p className="whitespace-pre-wrap">{message.content}</p>
+                                      </div>
+                                      {message.role === 'user' && <Avatar className="h-9 w-9 border"><AvatarFallback>{userProfile?.name?.slice(0,2).toUpperCase() || <User />}</AvatarFallback></Avatar>}
+                                  </div>
+                              ))}
+                              {isSending && currentChat?.messages[currentChat.messages.length - 1]?.role === 'user' && (
+                                  <div className="flex items-start gap-4 justify-start">
+                                      <Avatar className="h-9 w-9 border"><AvatarFallback><Bot /></AvatarFallback></Avatar>
+                                      <div className="max-w-md lg:max-w-2xl rounded-lg px-4 py-3 bg-muted shadow flex items-center space-x-2">
+                                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                          <span className="text-muted-foreground text-sm">Thinking...</span>
+                                      </div>
+                                  </div>
+                              )}
+                            </>
+                          )}
+                      </div>
                     </div>
                 </ScrollArea>
                 <div className="p-4 bg-card border-t">
-                    <form onSubmit={handleSendMessage} ref={formRef} className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
-                            <Paperclip className="h-5 w-5" />
-                            <span className="sr-only">Attach file</span>
-                        </Button>
-                        <Textarea
-                            ref={textAreaRef}
-                            name="message"
-                            placeholder={placeholderText}
-                            className="flex-1 resize-none bg-background"
-                            rows={1}
-                            onKeyDown={handleKeyDown}
-                            disabled={isSending || isUserLoading || !user}
-                        />
-                        <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
-                            <Mic className="h-5 w-5" />
-                            <span className="sr-only">Use voice</span>
-                        </Button>
-                        <SubmitButton isSending={isSending} />
-                    </form>
+                  <div className="max-w-4xl mx-auto">
+                      <form onSubmit={handleSendMessage} ref={formRef} className="flex items-center gap-2">
+                          <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
+                              <Paperclip className="h-5 w-5" />
+                              <span className="sr-only">Attach file</span>
+                          </Button>
+                          <Textarea
+                              ref={textAreaRef}
+                              name="message"
+                              placeholder={placeholderText}
+                              className="flex-1 resize-none bg-background"
+                              rows={1}
+                              onKeyDown={handleKeyDown}
+                              disabled={isSending || isUserLoading || !user}
+                          />
+                          <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
+                              <Mic className="h-5 w-5" />
+                              <span className="sr-only">Use voice</span>
+                          </Button>
+                          <SubmitButton isSending={isSending} />
+                      </form>
+                    </div>
                 </div>
             </div>
         </SidebarInset>
@@ -319,5 +322,3 @@ export default function HomePage() {
     </SidebarProvider>
   );
 }
-
-    
