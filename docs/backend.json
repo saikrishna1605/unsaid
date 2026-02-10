@@ -162,12 +162,18 @@
           "type": "string",
           "format": "date-time",
           "description": "Timestamp of when the request was created."
+        },
+        "status": {
+            "type": "string",
+            "enum": ["open", "matched", "completed"],
+            "description": "The current status of the help request."
         }
       },
       "required": [
         "id",
         "userId",
-        "createdAt"
+        "createdAt",
+        "status"
       ]
     },
     "VolunteerOffer": {
@@ -183,19 +189,26 @@
           "type": "string",
           "description": "Reference to User. (Relationship: User 1:N VolunteerOffer)"
         },
+        "userName": {
+            "type": "string",
+            "description": "Denormalized name of the volunteer."
+        },
         "helpRequestId": {
           "type": "string",
           "description": "Reference to HelpRequest. (Relationship: HelpRequest 1:N VolunteerOffer)"
         },
-        "availability": {
-          "type": "string",
-          "description": "Volunteer's availability to offer support."
+        "status": {
+            "type": "string",
+            "enum": ["pending", "accepted", "rejected"],
+            "description": "The status of the volunteer offer."
         }
       },
       "required": [
         "id",
         "userId",
-        "helpRequestId"
+        "userName",
+        "helpRequestId",
+        "status"
       ]
     },
     "Session": {
@@ -211,27 +224,64 @@
           "type": "string",
           "description": "Reference to HelpRequest. (Relationship: HelpRequest 1:1 Session)"
         },
-        "volunteerOfferId": {
-          "type": "string",
-          "description": "Reference to VolunteerOffer. (Relationship: VolunteerOffer 1:1 Session)"
+        "participantIds": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Array of UIDs for the two participants in the session."
+        },
+        "status": {
+            "type": "string",
+            "enum": ["active", "completed"],
+            "description": "The current status of the session."
+        },
+        "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of when the session was created."
         },
         "chatLog": {
-          "type": "string",
-          "description": "The chat log of the session, stored as a JSON string."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Shared notes from the session."
-        },
-        "summary": {
-          "type": "string",
-          "description": "The session summary."
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "model"
+                ]
+              },
+              "content": {
+                "type": "string"
+              },
+               "userId": {
+                "type": "string"
+               },
+               "userName": {
+                "type": "string"
+               },
+               "timestamp": {
+                "type": "string",
+                "format": "date-time"
+               }
+            },
+            "required": [
+              "role",
+              "content",
+              "userId"
+            ]
+          },
+          "description": "The chat log of the session."
         }
       },
       "required": [
         "id",
         "helpRequestId",
-        "volunteerOfferId"
+        "participantIds",
+        "status",
+        "createdAt"
       ]
     },
     "Lesson": {
