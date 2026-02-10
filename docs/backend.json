@@ -9,6 +9,10 @@
           "type": "string",
           "description": "Unique identifier for the User entity."
         },
+        "name": {
+          "type": "string",
+          "description": "The user's display name."
+        },
         "accessibilityPreferences": {
           "type": "string",
           "description": "User's accessibility preferences, stored as a JSON string."
@@ -23,7 +27,8 @@
         }
       },
       "required": [
-        "id"
+        "id",
+        "name"
       ]
     },
     "Post": {
@@ -38,6 +43,10 @@
         "userId": {
           "type": "string",
           "description": "Reference to User. (Relationship: User 1:N Post)"
+        },
+        "userName": {
+          "type": "string",
+          "description": "Denormalized name of the user who created the post."
         },
         "rawContent": {
           "type": "string",
@@ -68,6 +77,7 @@
       "required": [
         "id",
         "userId",
+        "userName",
         "createdAt"
       ]
     },
@@ -547,7 +557,8 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support the 'Unsaid/Unheard' application's accessibility-focused features and collaborative environment. It prioritizes authorization independence, clarity, and scalability by using denormalization and structural segregation.  The data structure leverages path-based ownership for user-specific data and membership maps for collaborative data.  \n\n*   **Authorization Independence:** Achieved through denormalization. For example, the 'Post' collection includes the 'userId' field to avoid needing to fetch the User document to determine ownership.  This approach is applied consistently across collections where authorization depends on related entities.\n*   **Structural Segregation:** Different data types with different access control requirements are stored in separate collections. User-specific data (e.g., user profiles, help requests) are stored under the `/users/{userId}` path, while community posts are stored in the root collection `/posts`. This segregation simplifies security rules and improves query performance.\n*   **QAPs (Rules are not Filters):** Secured list operations are enabled through structural segregation and the membership model. For example, listing public posts in `/posts` is secure because all documents in that collection have public visibility.  The 'visibility' field within the 'Post' entity also allows for filtering posts based on their intended audience (public, supporters-only, private).  For volunteer offers, the `helpRequestId` field allows listing offers related to a specific help request. Using roles stored directly within the User document in combination with user-owned subcollections will improve the security and performance of queries since the rule engine does not need to do a collection scan to determine authorization. The database includes global roles in the `/roles_admin/{uid}` collection, in order to support privileged operations for platform administrators."
+    "reasoning": "The Firestore data structure is designed to support the 'Unsaid/Unheard' application's accessibility-focused features and collaborative environment. It prioritizes authorization independence, clarity, and scalability by using denormalization and structural segregation.  The data structure leverages path-based ownership for user-specific data and membership maps for collaborative data.  \n\n*   **Authorization Independence:** Achieved through denormalization. For example, the 'Post' collection includes the 'userId' and 'userName' fields to avoid needing to fetch the User document to determine ownership or display name.  This approach is applied consistently across collections where authorization depends on related entities.\n*   **Structural Segregation:** Different data types with different access control requirements are stored in separate collections. User-specific data (e.g., user profiles, help requests) are stored under the `/users/{userId}` path, while community posts are stored in the root collection `/posts`. This segregation simplifies security rules and improves query performance.\n*   **QAPs (Rules are not Filters):** Secured list operations are enabled through structural segregation and the membership model. For example, listing public posts in `/posts` is secure because all documents in that collection have public visibility.  The 'visibility' field within the 'Post' entity also allows for filtering posts based on their intended audience (public, supporters-only, private).  For volunteer offers, the `helpRequestId` field allows listing offers related to a specific help request. Using roles stored directly within the User document in combination with user-owned subcollections will improve the security and performance of queries since the rule engine does not need to do a collection scan to determine authorization. The database includes global roles in the `/roles_admin/{uid}` collection, in order to support privileged operations for platform administrators."
   }
 }
+
     

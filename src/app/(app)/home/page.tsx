@@ -73,6 +73,12 @@ export default function HomePage() {
     [user, chatId, firestore]
   );
   const { data: currentChat, isLoading: isChatLoading } = useDoc<Chat>(chatDocRef);
+  
+  const userDocRef = useMemoFirebase(
+    () => (user ? doc(firestore, 'users', user.uid) : null),
+    [user, firestore]
+  );
+  const { data: userProfile } = useDoc(userDocRef);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -251,7 +257,7 @@ export default function HomePage() {
                         {!chatId ? (
                             <div className="text-center text-muted-foreground pt-16">
                                 <Bot className="mx-auto h-12 w-12" />
-                                <h2 className="text-2xl font-semibold mt-4">Welcome back!</h2>
+                                <h2 className="text-2xl font-semibold mt-4">Welcome back, {userProfile?.name || 'friend'}!</h2>
                                 <p className="mt-2">Select a conversation or start a new one to begin.</p>
                             </div>
                         ) : isChatLoading ? (
@@ -269,7 +275,7 @@ export default function HomePage() {
                                     <div className={cn('max-w-md lg:max-w-2xl rounded-lg px-4 py-3 text-card-foreground shadow', message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
                                         <p className="whitespace-pre-wrap">{message.content}</p>
                                     </div>
-                                    {message.role === 'user' && <Avatar className="h-9 w-9 border"><AvatarFallback><User /></AvatarFallback></Avatar>}
+                                    {message.role === 'user' && <Avatar className="h-9 w-9 border"><AvatarFallback>{userProfile?.name?.slice(0,2).toUpperCase() || <User />}</AvatarFallback></Avatar>}
                                 </div>
                             ))}
                             {isSending && currentChat?.messages[currentChat.messages.length - 1]?.role === 'user' && (
@@ -313,3 +319,5 @@ export default function HomePage() {
     </SidebarProvider>
   );
 }
+
+    

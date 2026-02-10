@@ -8,28 +8,77 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Speaker, Mic, MessageSquare, Hand, Loader2 } from 'lucide-react';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
+import { doc, setDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+
+interface PendingProfileData {
+  name: string;
+  preference: string;
+}
 
 export default function SetupPage() {
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
-  const [name, setName] = useState('');
+  const { toast } = useToast();
 
+  const [name, setName] = useState('');
+  const [communicationPreference, setCommunicationPreference] = useState('speak');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingProfileData, setPendingProfileData] = useState<PendingProfileData | null>(null);
+
+  // Effect to create user profile after anonymous sign-in completes
   useEffect(() => {
-    if (user) {
+    const createProfile = async () => {
+      if (user && pendingProfileData && firestore) {
+        const userRef = doc(firestore, 'users', user.uid);
+        const newUserProfile = {
+          id: user.uid,
+          name: pendingProfileData.name,
+          role: 'Primary user',
+          accessibilityPreferences: JSON.stringify({
+            primaryCommunication: pendingProfileData.preference,
+          }),
+        };
+
+        try {
+          await setDoc(userRef, newUserProfile);
+          // Profile created, now we can redirect.
+          router.replace('/home');
+        } catch (error) {
+          console.error("Failed to create user profile:", error);
+          toast({
+            variant: "destructive",
+            title: "Setup Failed",
+            description: "Could not save your profile. Please try again.",
+          });
+          // Reset state on failure
+          setIsSubmitting(false);
+          setPendingProfileData(null);
+        }
+      }
+    };
+
+    createProfile();
+  }, [user, pendingProfileData, firestore, router, toast]);
+
+  // Effect to redirect an already logged-in user
+  useEffect(() => {
+    if (user && !isSubmitting) {
       router.replace('/home');
     }
-  }, [user, router]);
-
+  }, [user, router, isSubmitting]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (auth) {
-      initiateAnonymousSignIn(auth);
-      router.push('/home');
-    }
+    if (!name.trim() || !auth) return;
+    
+    setIsSubmitting(true);
+    setPendingProfileData({ name, preference: communicationPreference });
+    initiateAnonymousSignIn(auth);
   };
   
   if (isUserLoading || user) {
@@ -57,12 +106,18 @@ export default function SetupPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                disabled={isSubmitting}
                 className="bg-card"
               />
             </div>
             <div className="space-y-4">
               <Label>Choose your primary way to communicate</Label>
-              <RadioGroup defaultValue="speak" className="grid grid-cols-2 gap-4">
+              <RadioGroup 
+                defaultValue="speak" 
+                onValueChange={setCommunicationPreference}
+                className="grid grid-cols-2 gap-4"
+                disabled={isSubmitting}
+              >
                 <div>
                   <RadioGroupItem value="speak" id="r1" className="peer sr-only" />
                   <Label htmlFor="r1" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
@@ -95,10 +150,15 @@ export default function SetupPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full" size="lg">Get Started</Button>
+            <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || !name.trim()}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Get Started
+            </Button>
           </CardFooter>
         </form>
       </Card>
     </div>
   );
 }
+
+    

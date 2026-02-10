@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { PenSquare, MessageCircle, Heart, Loader2 } from 'lucide-react';
 import {
   useCollection,
+  useDoc,
   useFirestore,
   useMemoFirebase,
   useUser,
@@ -26,6 +27,7 @@ import {
   Timestamp,
   addDoc,
   serverTimestamp,
+  doc,
 } from 'firebase/firestore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
@@ -44,6 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 interface Post {
   id: string;
   userId: string;
+  userName: string;
   rawContent: string;
   createdAt: Timestamp;
 }
@@ -53,10 +56,10 @@ function PostCard({ post }: { post: Post }) {
     <Card>
       <CardHeader className="flex-row gap-4 items-center">
         <Avatar>
-          <AvatarFallback>{post.userId.slice(0, 2).toUpperCase()}</AvatarFallback>
+          <AvatarFallback>{post.userName ? post.userName.slice(0, 2).toUpperCase() : post.userId.slice(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>
         <div>
-          <CardTitle className="text-lg">User {post.userId.slice(0, 6)}</CardTitle>
+          <CardTitle className="text-lg">{post.userName || `User ${post.userId.slice(0, 6)}`}</CardTitle>
           <CardDescription>
             {post.createdAt ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
           </CardDescription>
@@ -85,6 +88,12 @@ export default function CommunityPage() {
   const [postContent, setPostContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
 
+  const userDocRef = useMemoFirebase(
+    () => (user && firestore ? doc(firestore, 'users', user.uid) : null),
+    [user, firestore]
+  );
+  const { data: userProfile } = useDoc(userDocRef);
+
   const postsQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'posts'), orderBy('createdAt', 'desc')) : null),
     [firestore]
@@ -105,6 +114,7 @@ export default function CommunityPage() {
 
     const newPost = {
       userId: user.uid,
+      userName: userProfile?.name || 'Anonymous',
       rawContent: postContent,
       createdAt: serverTimestamp(),
     };
@@ -209,3 +219,5 @@ export default function CommunityPage() {
     </div>
   );
 }
+
+    
