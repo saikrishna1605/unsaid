@@ -11,6 +11,7 @@ import {
   BookOpen,
   Newspaper,
   Sparkles,
+  User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/learn', icon: BookOpen, label: 'Learn' },
   { href: '/reflect', icon: Sparkles, label: 'Reflect' },
   { href: '/news', icon: Newspaper, label: 'News' },
+  { href: '/profile', icon: User, label: 'Profile' },
 ];
 
 export default function BottomNavbar() {
