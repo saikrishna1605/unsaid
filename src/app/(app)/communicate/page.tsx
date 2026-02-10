@@ -210,7 +210,7 @@ function BlindLVTab() {
   const [showCamera, setShowCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isReading, setIsReading] = useState(false);
-  const [extractedText, setExtractedText] = useState<string | null>(null);
+  const [readResult, setReadResult] = useState<{ text: string; audio: string } | null>(null);
 
   // State for Explain Simply
   const [showExplainDialog, setShowExplainDialog] = useState(false);
@@ -278,10 +278,14 @@ function BlindLVTab() {
     if (capturedImage) {
       const processImage = async () => {
         setIsReading(true);
-        setExtractedText(null);
+        setReadResult(null);
         try {
           const result = await readTextFromImage({ photoDataUri: capturedImage });
-          setExtractedText(result.text);
+          if (result.text) {
+              setReadResult({ text: result.text, audio: result.audio });
+          } else {
+              setReadResult({ text: "No text found in the image.", audio: '' });
+          }
         } catch (error) {
           console.error("Error reading text from image:", error);
           toast({ variant: 'destructive', title: 'Error', description: 'Could not read text from the image.' });
@@ -396,23 +400,20 @@ function BlindLVTab() {
       </Dialog>
 
       {/* Extracted Text Dialog */}
-      <Dialog open={!!capturedImage} onOpenChange={(open) => { if (!open) { setCapturedImage(null); setExtractedText(null); } }}>
+      <Dialog open={!!capturedImage} onOpenChange={(open) => { if (!open) { setCapturedImage(null); setReadResult(null); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Extracted Text</DialogTitle>
           </DialogHeader>
           {isReading && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
-          {extractedText && (
+          {readResult && (
             <div className="space-y-4">
-              <Textarea value={extractedText} readOnly rows={10} className="bg-muted"/>
-              <Button onClick={() => {
-                if (typeof window !== 'undefined') {
-                    const utterance = new SpeechSynthesisUtterance(extractedText);
-                    window.speechSynthesis.speak(utterance);
-                }
-              }}>
-                <Volume2 className="mr-2 h-4 w-4" /> Read Aloud
-              </Button>
+              <Textarea value={readResult.text} readOnly rows={10} className="bg-muted"/>
+              {readResult.audio && (
+                <audio controls autoPlay src={readResult.audio} className="w-full">
+                    Your browser does not support the audio element.
+                </audio>
+              )}
             </div>
           )}
         </DialogContent>
