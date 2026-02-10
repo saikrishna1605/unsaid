@@ -16,6 +16,7 @@ import {
 import { readTextFromImage } from '@/ai/flows/read-text-from-image';
 import { generateEasyReadVersion } from '@/ai/flows/generate-easy-read-version';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
+import { describeSurroundings } from '@/ai/flows/describe-surroundings';
 
 
 // AAC Tab Component (mostly unchanged)
@@ -217,6 +218,12 @@ function BlindLVTab() {
   const [isExplaining, setIsExplaining] = useState(false);
   const [explainedText, setExplainedText] = useState('');
 
+  // State for Describe Surroundings
+  const [showDescribeCamera, setShowDescribeCamera] = useState(false);
+  const [imageToDescribe, setImageToDescribe] = useState<string | null>(null);
+  const [isDescribing, setIsDescribing] = useState(false);
+  const [descriptionResult, setDescriptionResult] = useState<{ text: string, audio: string } | null>(null);
+
   const getCameraPermission = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -237,6 +244,15 @@ function BlindLVTab() {
     }
   };
 
+  const stopCameraStream = () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+      }
+  }
+  
+  // --- Read with Camera logic ---
   const handleReadWithCamera = async () => {
     const stream = await getCameraPermission();
     if (stream) {
@@ -244,7 +260,7 @@ function BlindLVTab() {
     }
   };
   
-  const handleCapture = () => {
+  const handleCaptureForRead = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -257,14 +273,6 @@ function BlindLVTab() {
       stopCameraStream();
     }
   };
-
-  const stopCameraStream = () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-          const stream = videoRef.current.srcObject as MediaStream;
-          stream.getTracks().forEach(track => track.stop());
-          videoRef.current.srcObject = null;
-      }
-  }
 
   useEffect(() => {
     if (capturedImage) {
@@ -284,7 +292,49 @@ function BlindLVTab() {
       processImage();
     }
   }, [capturedImage, toast]);
+  
+  // --- Describe Surroundings logic ---
+  const handleDescribeSurroundings = async () => {
+    const stream = await getCameraPermission();
+    if (stream) {
+      setShowDescribeCamera(true);
+    }
+  };
 
+  const handleCaptureForDescription = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d')?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+      const dataUri = canvas.toDataURL('image/jpeg');
+      setImageToDescribe(dataUri);
+      setShowDescribeCamera(false);
+      stopCameraStream();
+    }
+  };
+
+  useEffect(() => {
+    if (imageToDescribe) {
+        const processImage = async () => {
+            setIsDescribing(true);
+            setDescriptionResult(null);
+            try {
+                const result = await describeSurroundings({ photoDataUri: imageToDescribe });
+                setDescriptionResult({ text: result.description, audio: result.audioDescription });
+            } catch (error) {
+                console.error("Error describing surroundings:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not describe the scene.' });
+            } finally {
+                setIsDescribing(false);
+            }
+        };
+        processImage();
+    }
+  }, [imageToDescribe, toast]);
+
+  // --- Explain Simply logic ---
   const handleExplain = async () => {
       if (!textToExplain.trim()) return;
       setIsExplaining(true);
@@ -311,11 +361,16 @@ function BlindLVTab() {
           <Button variant="secondary" className="w-full h-24 text-lg" onClick={handleReadWithCamera}>
             <Camera className="mr-4 h-6 w-6" /> Read with Camera
           </Button>
+          <Button variant="secondary" className="w-full h-24 text-lg" onClick={handleDescribeSurroundings}>
+            <Eye className="mr-4 h-6 w-6" /> Describe Surroundings
+          </Button>
           <Button variant="secondary" className="w-full h-24 text-lg" onClick={() => setShowExplainDialog(true)}>
             <Bot className="mr-4 h-6 w-6" /> Explain Simply
           </Button>
         </CardContent>
       </Card>
+      
+      <canvas ref={canvasRef} className="hidden" />
 
       {/* Read with Camera Dialog */}
       <Dialog open={showCamera} onOpenChange={(open) => { if (!open) { stopCameraStream(); setShowCamera(false); } else { setShowCamera(open); }}}>
@@ -335,11 +390,10 @@ function BlindLVTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCamera(false); stopCameraStream(); }}>Cancel</Button>
-            <Button onClick={handleCapture} disabled={!hasCameraPermission}>Capture Text</Button>
+            <Button onClick={handleCaptureForRead} disabled={!hasCameraPermission}>Capture Text</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <canvas ref={canvasRef} className="hidden" />
 
       {/* Extracted Text Dialog */}
       <Dialog open={!!capturedImage} onOpenChange={(open) => { if (!open) { setCapturedImage(null); setExtractedText(null); } }}>
@@ -363,6 +417,48 @@ function BlindLVTab() {
           )}
         </DialogContent>
       </Dialog>
+      
+      {/* Describe Surroundings Camera Dialog */}
+      <Dialog open={showDescribeCamera} onOpenChange={(open) => { if (!open) { stopCameraStream(); setShowDescribeCamera(false); } else { setShowDescribeCamera(open); }}}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Describe Surroundings</DialogTitle>
+            <DialogDescription>Position the camera to capture the scene you want described.</DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <video ref={videoRef} className="w-full aspect-video rounded-md" autoPlay muted />
+            {hasCameraPermission === false && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertTitle>Camera Access Required</AlertTitle>
+                  <AlertDescription>Please allow camera access to use this feature.</AlertDescription>
+                </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowDescribeCamera(false); stopCameraStream(); }}>Cancel</Button>
+            <Button onClick={handleCaptureForDescription} disabled={!hasCameraPermission}>Capture Scene</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Description Result Dialog */}
+      <Dialog open={!!imageToDescribe} onOpenChange={(open) => { if (!open) { setImageToDescribe(null); setDescriptionResult(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Scene Description</DialogTitle>
+          </DialogHeader>
+          {isDescribing && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+          {descriptionResult && (
+            <div className="space-y-4">
+              <p>{descriptionResult.text}</p>
+              <audio controls autoPlay src={descriptionResult.audio} className="w-full">
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
 
       {/* Explain Simply Dialog */}
       <Dialog open={showExplainDialog} onOpenChange={setShowExplainDialog}>

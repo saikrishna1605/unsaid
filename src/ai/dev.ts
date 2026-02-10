@@ -9,3 +9,4 @@ import '@/ai/flows/chat-agent.ts';
 import '@/ai/flows/read-text-from-image.ts';
 import '@/ai/flows/transcribe-audio.ts';
 import '@/ai/flows/interpret-sign-language.ts';
+import '@/ai/flows/describe-surroundings.ts';
