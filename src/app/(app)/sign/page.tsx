@@ -7,6 +7,7 @@ import { Camera, Upload, Video, Loader2, Play, Pause } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { interpretSignLanguage } from '@/ai/flows/interpret-sign-language';
 
 export default function SignPage() {
   const { toast } = useToast();
@@ -76,12 +77,41 @@ export default function SignPage() {
     }
   };
 
+  const blobToDataUri = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  const handleTranslation = async (clipBlob: Blob) => {
+    setIsTranslating(true);
+    setTranslatedText(null);
+    try {
+        const videoDataUri = await blobToDataUri(clipBlob);
+        const result = await interpretSignLanguage({ videoDataUri });
+        setTranslatedText(result.text);
+    } catch(error) {
+        console.error("Error interpreting sign language:", error);
+        toast({
+          variant: 'destructive',
+          title: 'Translation Failed',
+          description: 'Could not interpret the sign language clip.',
+        });
+        setTranslatedText("We couldn't translate this clip. Please try again.");
+    } finally {
+        setIsTranslating(false);
+    }
+  }
+
   const startRecording = async () => {
     setRecordedClip(null);
     setTranslatedText(null);
     const stream = await getCameraPermission();
     if (stream && videoRef.current) {
-        videoRef.current.srcObject = stream; // Re-assign stream
+        videoRef.current.srcObject = stream;
         videoRef.current.play();
 
       setIsRecording(true);
@@ -96,13 +126,7 @@ export default function SignPage() {
         const blob = new Blob(chunks, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
         setRecordedClip(url);
-        // Here you would send the blob to a sign language translation API
-        // For now, we'll just simulate it.
-        setIsTranslating(true);
-        setTimeout(() => {
-            setTranslatedText("This is a placeholder translation for the recorded sign language clip.");
-            setIsTranslating(false);
-        }, 2000);
+        handleTranslation(blob);
       };
       recorder.start();
     }
@@ -121,11 +145,7 @@ export default function SignPage() {
       if (file) {
           setRecordedClip(URL.createObjectURL(file));
           setTranslatedText(null);
-          setIsTranslating(true);
-            setTimeout(() => {
-                setTranslatedText("This is a placeholder translation for the uploaded sign language clip.");
-                setIsTranslating(false);
-            }, 2000);
+          handleTranslation(file);
       }
   }
 
@@ -184,12 +204,12 @@ export default function SignPage() {
                   <Pause className="mr-2 h-5 w-5" /> Stop Recording
                 </Button>
             ) : (
-                <Button size="lg" onClick={startRecording} disabled={!hasCameraPermission}>
+                <Button size="lg" onClick={startRecording} disabled={!hasCameraPermission || isTranslating}>
                   <Video className="mr-2 h-5 w-5" /> Start Recording
                 </Button>
             )}
 
-            <Button asChild size="lg" variant="secondary" disabled={isRecording}>
+            <Button asChild size="lg" variant="secondary" disabled={isRecording || isTranslating}>
               <label>
                 <Upload className="mr-2 h-5 w-5" /> Upload Clip
                 <input type="file" accept="video/*" className="sr-only" onChange={handleUpload}/>

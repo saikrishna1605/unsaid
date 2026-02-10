@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { readTextFromImage } from '@/ai/flows/read-text-from-image';
 import { generateEasyReadVersion } from '@/ai/flows/generate-easy-read-version';
+import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 
 
 // AAC Tab Component (mostly unchanged)
@@ -74,14 +75,17 @@ function AACTab() {
   );
 }
 
-// Deaf/HoH Tab with Live Captions
+// Deaf/HoH Tab with Audio Transcription
 function DeafHoHTab() {
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcribedText, setTranscribedText] = useState('');
   const [hasMicPermission, setHasMicPermission] = useState<boolean | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check for permission status on mount
     navigator.permissions.query({ name: 'microphone' as PermissionName }).then((permissionStatus) => {
       setHasMicPermission(permissionStatus.state === 'granted');
       permissionStatus.onchange = () => {
@@ -89,54 +93,93 @@ function DeafHoHTab() {
       };
     });
   }, []);
-
+  
   const handleListen = async () => {
-    if (!isListening) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // We have permission, and the stream is active.
-        // In a real app, you'd connect this stream to a speech-to-text service.
-        setHasMicPermission(true);
-        setIsListening(true);
-        // Clean up stream when user stops listening
-        stream.getTracks().forEach(track => track.stop());
-      } catch (error) {
-        console.error('Error accessing microphone:', error);
-        setHasMicPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Microphone Access Denied',
-          description: 'Please enable microphone permissions in your browser settings.',
-        });
-      }
-    } else {
-      // Logic to stop listening
+    if (isListening) {
+      mediaRecorderRef.current?.stop();
       setIsListening(false);
+      return;
+    }
+
+    setTranscribedText('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setHasMicPermission(true);
+      setIsListening(true);
+
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        if (audioBlob.size === 0) {
+            console.log("No audio recorded.");
+            return;
+        }
+
+        setIsTranscribing(true);
+
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const audioDataUri = reader.result as string;
+          try {
+            const { text } = await transcribeAudio({ audioDataUri });
+            setTranscribedText(text);
+          } catch (error) {
+            console.error('Error transcribing audio:', error);
+            toast({
+              variant: 'destructive',
+              title: 'Transcription Failed',
+              description: 'Could not transcribe the audio.',
+            });
+          } finally {
+            setIsTranscribing(false);
+          }
+        };
+        
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      setHasMicPermission(false);
+      toast({
+        variant: 'destructive',
+        title: 'Microphone Access Denied',
+        description: 'Please enable microphone permissions in your browser settings.',
+      });
     }
   };
 
   return (
     <Card className="border-none shadow-none">
       <CardHeader>
-        <CardTitle>Live Captions</CardTitle>
-        <CardDescription>Real-time speech-to-text with speaker labels.</CardDescription>
+        <CardTitle>Audio Transcription</CardTitle>
+        <CardDescription>Record a voice memo and transcribe it to text using AI.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="w-full h-64 rounded-lg bg-muted/50 p-4 flex flex-col justify-between">
-          <div className='space-y-2 text-card-foreground'>
-            {isListening ? (
-              <>
-                <p><strong className='text-primary'>Speaker A:</strong> This is a demonstration of live captioning.</p>
-                <p className="text-muted-foreground animate-pulse">Listening...</p>
-              </>
+        <div className="w-full min-h-64 rounded-lg bg-muted/50 p-4 flex flex-col justify-center">
+            {isTranscribing ? (
+                <div className="flex flex-col items-center justify-center text-center text-muted-foreground">
+                    <Loader2 className="h-8 w-8 animate-spin mb-2"/>
+                    <p>Transcribing audio...</p>
+                </div>
+            ) : transcribedText ? (
+                <p className="text-card-foreground">{transcribedText}</p>
             ) : (
-              <>
-                <p><strong className='text-primary'>Speaker A:</strong> Hello, how are you doing today?</p>
-                <p><strong className='text-accent-foreground/80'>Speaker B:</strong> I'm doing well, thank you! Just enjoying the quiet.</p>
-              </>
+                <div className="text-center text-muted-foreground">
+                    <p>{isListening ? "Recording audio... Tap 'Stop Listening' to transcribe." : "Tap 'Start Listening' to begin recording."}</p>
+                </div>
             )}
-          </div>
-           {!isListening && <p className='text-muted-foreground text-sm text-center'>Tap "Start Listening" to begin transcribing.</p>}
         </div>
          {hasMicPermission === false && (
           <Alert variant="destructive">
@@ -146,13 +189,14 @@ function DeafHoHTab() {
             </AlertDescription>
           </Alert>
         )}
-        <Button className="w-full" size="lg" onClick={handleListen}>
+        <Button className="w-full" size="lg" onClick={handleListen} disabled={isTranscribing}>
           <Mic className="mr-2 h-4 w-4" /> {isListening ? 'Stop Listening' : 'Start Listening'}
         </Button>
       </CardContent>
     </Card>
   );
 }
+
 
 // Blind/LV Tab with Audio Assistance
 function BlindLVTab() {
