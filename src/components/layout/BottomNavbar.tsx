@@ -10,6 +10,7 @@ import {
   HeartHandshake,
   BookOpen,
   Newspaper,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ const navItems = [
   { href: '/community', icon: Users2, label: 'Community' },
   { href: '/volunteer', icon: HeartHandshake, label: 'Volunteer' },
   { href: '/learn', icon: BookOpen, label: 'Learn' },
+  { href: '/reflect', icon: Sparkles, label: 'Reflect' },
   { href: '/news', icon: Newspaper, label: 'News' },
 ];
 
