@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview A multi-personality chat agent that adapts its tone based on user input.
+ * @fileOverview A multi-personality chat agent that adapts its tone and understands images.
  *
  * - chat - The main function that orchestrates the chat logic.
  * - ChatInput - The input type for the chat function.
@@ -15,12 +15,14 @@ import {z} from 'genkit';
 const ChatMessageSchema = z.object({
   role: z.enum(['user', 'model']),
   content: z.string(),
+  imageUrl: z.string().optional().describe("An optional image URL (data URI) associated with the message."),
 });
 
 // Input schema for the main chat flow
 const ChatInputSchema = z.object({
   history: z.array(ChatMessageSchema),
-  message: z.string().describe('The latest message from the user.'),
+  message: z.string().describe('The latest text message from the user.'),
+  imageUrl: z.string().optional().describe("An optional new image from the user (data URI)."),
 });
 export type ChatInput = z.infer<typeof ChatInputSchema>;
 
@@ -66,19 +68,39 @@ const chatFlow = ai.defineFlow(
     outputSchema: ChatOutputSchema,
   },
   async (input) => {
-    // 1. Analyze the tone of the latest user message
-    const { output: toneOutput } = await toneAnalyzerPrompt({ message: input.message });
-    
-    const tone = toneOutput?.tone || 'Neutral';
+    // 1. Analyze the tone of the latest user message (if it exists)
+    let tone = 'Neutral';
+    if (input.message) {
+      const { output: toneOutput } = await toneAnalyzerPrompt({ message: input.message });
+      tone = toneOutput?.tone || 'Neutral';
+    }
     
     // 2. Select the persona based on the tone
     const systemPrompt = AGENT_PERSONAS[tone as keyof typeof AGENT_PERSONAS];
 
-    // 3. Generate the response using the selected persona
+    // 3. Construct history and prompt for the multimodal model
+    const historyForAi = input.history.map(msg => ({
+        role: msg.role,
+        parts: [
+            // Only add text part if content is not empty
+            ...(msg.content ? [{ text: msg.content }] : []),
+            ...(msg.imageUrl ? [{ media: { url: msg.imageUrl } }] : []),
+        ],
+    })).filter(msg => msg.parts.length > 0); // Ensure we don't send empty messages
+
+    const newPromptParts = [];
+    if (input.message) {
+        newPromptParts.push({ text: input.message });
+    }
+    if (input.imageUrl) {
+        newPromptParts.push({ media: { url: input.imageUrl } });
+    }
+
+    // 4. Generate the response using the selected persona
     const { output } = await ai.generate({
         system: systemPrompt,
-        prompt: input.message,
-        history: input.history,
+        prompt: newPromptParts,
+        history: historyForAi,
     });
 
     return { response: output || 'I am not sure how to respond to that. Could you please rephrase?' };

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useUser, useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, addDoc, updateDoc, serverTimestamp, query, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
 import { chat } from '@/ai/flows/chat-agent';
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Loader2, Bot, User, Plus, MessageSquare, Menu, Mic, Paperclip, Trash2 } from 'lucide-react';
+import { Send, Loader2, Bot, User, Plus, MessageSquare, Menu, Mic, Paperclip, Trash2, X } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -31,6 +32,7 @@ import { cn } from '@/lib/utils';
 interface ChatMessage {
   role: 'user' | 'model';
   content: string;
+  imageUrl?: string;
 }
 
 interface Chat {
@@ -43,7 +45,7 @@ interface Chat {
 
 function SubmitButton({ isSending }: { isSending: boolean }) {
   return (
-    <Button type="submit" size="icon" disabled={isSending} aria-label="Send message">
+    <Button type="submit" size="icon" disabled={isSending} aria-label="Send message" className="shrink-0">
       {isSending ? <Loader2 className="animate-spin" /> : <Send />}
     </Button>
   );
@@ -61,6 +63,10 @@ export default function HomePage() {
   const formRef = useRef<HTMLFormElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  // State for image handling
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageData, setImageData] = useState<string | null>(null);
 
   const chatsQuery = useMemoFirebase(
     () => (user ? query(collection(firestore, 'users', user.uid, 'chats'), orderBy('createdAt', 'desc')) : null),
@@ -91,19 +97,7 @@ export default function HomePage() {
   
   const handleNewChat = async () => {
     if (!user) return;
-    const newChat = {
-      title: 'New Chat',
-      userId: user.uid,
-      createdAt: serverTimestamp(),
-      messages: [],
-    };
-    try {
-      const chatsCollection = collection(firestore, 'users', user.uid, 'chats');
-      const newDocRef = await addDoc(chatsCollection, newChat);
-      router.push(`/home?chatId=${newDocRef.id}`);
-    } catch (error) {
-      console.error("Error creating new chat:", error);
-    }
+    router.push('/home');
   };
   
   const handleDeleteChat = async (e: React.MouseEvent, chatIdToDelete: string) => {
@@ -135,6 +129,28 @@ export default function HomePage() {
     }
   };
 
+  const handleRemoveImage = () => {
+    if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+    }
+    setImagePreview(null);
+    setImageData(null);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            handleRemoveImage(); // Clean up previous image if any
+            setImagePreview(URL.createObjectURL(file)); // For preview
+            setImageData(reader.result as string); // For sending to AI
+        };
+        reader.readAsDataURL(file);
+    }
+    event.target.value = ''; // Allow selecting the same file again
+  };
+
   const handleSendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!user || isSending || isUserLoading) return;
@@ -142,20 +158,29 @@ export default function HomePage() {
     const formData = new FormData(event.currentTarget);
     const messageContent = formData.get('message') as string;
 
-    if (!messageContent.trim()) return;
+    if (!messageContent.trim() && !imageData) return;
 
     formRef.current?.reset();
     textAreaRef.current?.focus();
     setIsSending(true);
 
-    const userMessage: ChatMessage = { role: 'user', content: messageContent };
+    const userMessage: ChatMessage = { 
+      role: 'user', 
+      content: messageContent,
+      ...(imageData && { imageUrl: imageData }),
+    };
+
+    const tempImageData = imageData;
+    
+    // Clear the input UI immediately
+    handleRemoveImage();
 
     try {
         let activeChatId = chatId;
         
         if (!activeChatId) {
             const newChatData = {
-                title: messageContent.substring(0, 30),
+                title: messageContent.substring(0, 30) || 'Image Chat',
                 userId: user.uid,
                 createdAt: serverTimestamp(),
                 messages: [userMessage],
@@ -166,7 +191,7 @@ export default function HomePage() {
             
             router.push(`/home?chatId=${activeChatId}`);
             
-            const result = await chat({ history: [], message: messageContent });
+            const result = await chat({ history: [], message: messageContent, imageUrl: tempImageData });
             const modelMessage: ChatMessage = { role: 'model', content: result.response };
             
             await updateDoc(newDocRef, { messages: [userMessage, modelMessage] });
@@ -179,13 +204,14 @@ export default function HomePage() {
 
             await updateDoc(chatRef, { messages: messagesWithUser });
 
-            const result = await chat({ history: historyForAi, message: messageContent });
+            const result = await chat({ history: historyForAi, message: messageContent, imageUrl: tempImageData });
             const modelMessage: ChatMessage = { role: 'model', content: result.response };
             
             await updateDoc(chatRef, { messages: [...messagesWithUser, modelMessage] });
         }
     } catch (e) {
         console.error(e);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not send message.'})
         if (textAreaRef.current) {
             textAreaRef.current.value = messageContent;
         }
@@ -252,7 +278,7 @@ export default function HomePage() {
         <SidebarInset className="flex-1 flex flex-col">
             <div className="flex-1 flex flex-col overflow-hidden">
                 <ScrollArea className="flex-1" ref={scrollAreaRef}>
-                    <div className="p-6">
+                    <div className="w-full max-w-4xl mx-auto p-6">
                       <div className="space-y-6">
                           {!chatId ? (
                               <div className="text-center text-muted-foreground pt-16">
@@ -273,7 +299,12 @@ export default function HomePage() {
                                   >
                                       {message.role === 'model' && <Avatar className="h-9 w-9 border"><AvatarFallback><Bot /></AvatarFallback></Avatar>}
                                       <div className={cn('max-w-md lg:max-w-2xl rounded-lg px-4 py-3 text-card-foreground shadow', message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
-                                          <p className="whitespace-pre-wrap">{message.content}</p>
+                                          {message.imageUrl && (
+                                            <div className="mb-2 relative">
+                                                <Image src={message.imageUrl} alt="User upload" width={300} height={300} className="rounded-md max-w-full h-auto" />
+                                            </div>
+                                          )}
+                                          {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
                                       </div>
                                       {message.role === 'user' && <Avatar className="h-9 w-9 border"><AvatarFallback>{userProfile?.name?.slice(0,2).toUpperCase() || <User />}</AvatarFallback></Avatar>}
                                   </div>
@@ -292,27 +323,40 @@ export default function HomePage() {
                       </div>
                     </div>
                 </ScrollArea>
-                <div className="border-t p-6">
-                  <form onSubmit={handleSendMessage} ref={formRef} className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
-                          <Paperclip className="h-5 w-5" />
-                          <span className="sr-only">Attach file</span>
-                      </Button>
-                      <Textarea
-                          ref={textAreaRef}
-                          name="message"
-                          placeholder={placeholderText}
-                          className="flex-1 resize-none bg-background"
-                          rows={1}
-                          onKeyDown={handleKeyDown}
-                          disabled={isSending || isUserLoading || !user}
-                      />
-                      <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user}>
-                          <Mic className="h-5 w-5" />
-                          <span className="sr-only">Use voice</span>
-                      </Button>
-                      <SubmitButton isSending={isSending} />
-                  </form>
+                <div className="border-t p-4 bg-background">
+                  <div className="w-full max-w-4xl mx-auto">
+                    {imagePreview && (
+                        <div className="relative mb-2 w-24">
+                            <Image src={imagePreview} alt="Image preview" width={80} height={80} className="rounded-md object-cover aspect-square" />
+                            <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full" onClick={handleRemoveImage}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
+                    <form onSubmit={handleSendMessage} ref={formRef} className="flex items-start gap-2">
+                        <Button variant="ghost" size="icon" asChild className="shrink-0">
+                          <label htmlFor="file-upload" className="cursor-pointer">
+                            <Paperclip className="h-5 w-5" />
+                            <span className="sr-only">Attach file</span>
+                          </label>
+                        </Button>
+                        <input id="file-upload" type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={isSending || isUserLoading || !user} />
+                        <Textarea
+                            ref={textAreaRef}
+                            name="message"
+                            placeholder={placeholderText}
+                            className="flex-1 resize-none bg-background"
+                            rows={1}
+                            onKeyDown={handleKeyDown}
+                            disabled={isSending || isUserLoading || !user}
+                        />
+                        <Button variant="ghost" size="icon" type="button" disabled={isSending || isUserLoading || !user} className="shrink-0">
+                            <Mic className="h-5 w-5" />
+                            <span className="sr-only">Use voice</span>
+                        </Button>
+                        <SubmitButton isSending={isSending} />
+                    </form>
+                  </div>
                 </div>
             </div>
         </SidebarInset>
