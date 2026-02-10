@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Mic, Sparkles, Wind, Send } from 'lucide-react';
+import { Loader2, Mic, Sparkles, Wind, Send, StopCircle } from 'lucide-react';
 import { dailyReflection } from '@/ai/flows/daily-reflection-ai';
+import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ReflectPage() {
@@ -13,6 +14,11 @@ export default function ReflectPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [reflection, setReflection] = useState<string | null>(null);
     const [inputText, setInputText] = useState('');
+
+    const [isRecording, setIsRecording] = useState(false);
+    const [isTranscribing, setIsTranscribing] = useState(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
 
     const handleReflection = async (input: string) => {
         if (!input.trim()) {
@@ -37,6 +43,74 @@ export default function ReflectPage() {
         }
     };
 
+    const handleRecordStop = () => {
+        if (mediaRecorderRef.current) {
+            mediaRecorderRef.current.stop();
+        }
+        setIsRecording(false);
+    };
+
+    const handleRecordStart = async () => {
+        setReflection(null);
+        setInputText('');
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            setIsRecording(true);
+
+            const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            mediaRecorderRef.current = recorder;
+            audioChunksRef.current = [];
+
+            recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            recorder.onstop = async () => {
+                stream.getTracks().forEach(track => track.stop());
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                
+                if (audioBlob.size === 0) {
+                    console.warn("No audio recorded.");
+                    return;
+                }
+
+                setIsTranscribing(true);
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = async () => {
+                    const audioDataUri = reader.result as string;
+                    try {
+                        const { text } = await transcribeAudio({ audioDataUri });
+                        setInputText(text); // Show transcribed text
+                        await handleReflection(`A user recorded a voice note. The transcription is: "${text}"`);
+                    } catch (error) {
+                        console.error('Error transcribing audio:', error);
+                        toast({
+                            variant: 'destructive',
+                            title: 'Transcription Failed',
+                            description: 'Could not transcribe the audio.',
+                        });
+                    } finally {
+                        setIsTranscribing(false);
+                    }
+                };
+            };
+            recorder.start();
+        } catch (error) {
+            console.error('Error accessing microphone:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Microphone Access Denied',
+                description: 'Please enable microphone permissions in your browser settings.',
+            });
+        }
+    };
+    
+    const anyLoading = isLoading || isTranscribing;
+
     return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
             <Card className="w-full">
@@ -52,16 +126,16 @@ export default function ReflectPage() {
                 <CardContent className="space-y-6">
                     <div className="space-y-2">
                         <Textarea 
-                            placeholder="How are you feeling today?"
+                            placeholder={isRecording ? "Recording your thoughts..." : (isTranscribing ? "Transcribing..." : "How are you feeling today?")}
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                             rows={3}
-                            disabled={isLoading}
+                            disabled={anyLoading || isRecording}
                         />
                         <div className="flex flex-wrap gap-2">
                             <Button 
                                 onClick={() => handleReflection(inputText)}
-                                disabled={isLoading || !inputText.trim()}
+                                disabled={anyLoading || isRecording || !inputText.trim()}
                             >
                                 <Send className="mr-2 h-4 w-4"/>
                                 Reflect on my words
@@ -69,29 +143,43 @@ export default function ReflectPage() {
                             <Button 
                                 variant="secondary"
                                 onClick={() => handleReflection('The user chose to share a moment of silence.')}
-                                disabled={isLoading}
+                                disabled={anyLoading || isRecording}
                             >
                                 <Wind className="mr-2 h-4 w-4"/>
                                 Share silence
                             </Button>
-                             <Button 
-                                variant="secondary"
-                                disabled={true}
-                            >
-                                <Mic className="mr-2 h-4 w-4"/>
-                                Record a feeling (coming soon)
-                            </Button>
+                             {isRecording ? (
+                                <Button 
+                                    variant="secondary"
+                                    onClick={handleRecordStop}
+                                    className="text-red-500"
+                                >
+                                    <StopCircle className="mr-2 h-4 w-4"/>
+                                    Stop Recording
+                                </Button>
+                             ) : (
+                                <Button 
+                                    variant="secondary"
+                                    onClick={handleRecordStart}
+                                    disabled={anyLoading}
+                                >
+                                    {isTranscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Mic className="mr-2 h-4 w-4"/>}
+                                    {isTranscribing ? 'Processing...' : 'Record a feeling'}
+                                </Button>
+                             )}
                         </div>
                     </div>
 
-                    {isLoading && (
+                    {anyLoading && !isRecording && (
                         <div className="flex justify-center items-center py-10">
                             <Loader2 className="h-8 w-8 animate-spin" />
-                            <p className="ml-4 text-muted-foreground">Generating a thoughtful reflection...</p>
+                            <p className="ml-4 text-muted-foreground">
+                                {isTranscribing ? 'Transcribing your voice...' : 'Generating a thoughtful reflection...'}
+                            </p>
                         </div>
                     )}
                     
-                    {reflection && (
+                    {reflection && !anyLoading && (
                         <Card className="bg-muted/50">
                             <CardHeader>
                                 <CardTitle className="text-lg">A Moment's Reflection</CardTitle>
