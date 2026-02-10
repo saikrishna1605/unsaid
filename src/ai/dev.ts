@@ -11,3 +11,4 @@ import '@/ai/flows/transcribe-audio.ts';
 import '@/ai/flows/interpret-sign-language.ts';
 import '@/ai/flows/describe-surroundings.ts';
 import '@/ai/flows/generate-lesson-quiz.ts';
+import '@/ai/flows/generate-sign-cards-from-text.ts';
