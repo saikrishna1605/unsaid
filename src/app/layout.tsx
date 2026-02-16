@@ -4,8 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
-  title: 'Unsaid/Unheard',
-  description: 'An accessibility-first super-app with multimodal input and output support.',
+  title: process.env.NEXT_PUBLIC_APP_TITLE || 'Unsaid/Unheard',
+  description: process.env.NEXT_PUBLIC_APP_DESCRIPTION || 'An accessibility-first super-app with multimodal input and output support.',
 };
 
 export default function RootLayout({

@@ -93,7 +93,7 @@ export default function SetupPage() {
     <div className="flex items-center justify-center min-h-screen bg-background p-4 sm:p-6 md:p-8">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader>
-          <CardTitle className="text-3xl font-headline text-center">Welcome to Unsaid/Unheard</CardTitle>
+          <CardTitle className="text-3xl font-headline text-center">Welcome to {process.env.NEXT_PUBLIC_APP_TITLE || 'Unsaid/Unheard'}</CardTitle>
           <CardDescription className="text-center pt-2">Let's get you set up. Your preferences help us make your experience better.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -160,5 +160,3 @@ export default function SetupPage() {
     </div>
   );
 }
-
-    
