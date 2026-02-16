@@ -262,7 +262,11 @@ export default function HomePage() {
             
             router.push(`/home?chatId=${activeChatId}`);
             
-            const result = await chat({ history: [], message: messageContent, imageUrl: tempImageData });
+            const result = await chat({
+              history: [],
+              message: messageContent,
+              ...(tempImageData && { imageUrl: tempImageData }),
+            });
             const modelMessage: ChatMessage = { role: 'model', content: result.response };
             
             await updateDoc(newDocRef, { messages: [userMessage, modelMessage] });
@@ -275,7 +279,11 @@ export default function HomePage() {
 
             await updateDoc(chatRef, { messages: messagesWithUser });
 
-            const result = await chat({ history: historyForAi, message: messageContent, imageUrl: tempImageData });
+            const result = await chat({
+              history: historyForAi,
+              message: messageContent,
+              ...(tempImageData && { imageUrl: tempImageData }),
+            });
             const modelMessage: ChatMessage = { role: 'model', content: result.response };
             
             await updateDoc(chatRef, { messages: [...messagesWithUser, modelMessage] });
