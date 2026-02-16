@@ -30,8 +30,8 @@ interface AACItem {
 }
 
 // Icon mapping - maps icon names to actual Lucide components
-const getIconComponent = (iconName: string) => {
-  const IconComponent = (LucideIcons as any)[iconName];
+const getIconComponent = (iconName: string): React.ComponentType<any> => {
+  const IconComponent = (LucideIcons as Record<string, React.ComponentType<any>>)[iconName];
   return IconComponent || MessageSquare; // Fallback to MessageSquare if icon not found
 };
 

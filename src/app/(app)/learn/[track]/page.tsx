@@ -35,13 +35,13 @@ export default function TrackPage() {
     const { data: trackData, isLoading: isTrackLoading } = useCollection<LearningTrack>(trackQuery);
     const track = trackData && trackData.length > 0 ? trackData[0] : null;
 
-    // Fetch lessons for this track
+    // Fetch lessons for this track (parallel with track query)
     const lessonsQuery = useMemoFirebase(
-        () => firestore && track ? query(
+        () => firestore ? query(
             collection(firestore, 'lessons'), 
             where('trackSlug', '==', trackSlug)
         ) : null,
-        [firestore, trackSlug, track]
+        [firestore, trackSlug]
     );
     const { data: lessons, isLoading: isLessonsLoading } = useCollection<Lesson>(lessonsQuery);
 

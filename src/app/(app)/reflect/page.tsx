@@ -9,7 +9,7 @@ import { dailyReflection } from '@/ai/flows/daily-reflection-ai';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 
 const moodOptions = [
@@ -55,7 +55,8 @@ export default function ReflectPage() {
         if (!user || !firestore) return;
         
         try {
-            const moodRef = doc(firestore, 'users', user.uid, 'mood_history', new Date().toISOString());
+            // Use auto-generated ID to avoid race conditions
+            const moodRef = doc(collection(firestore, 'users', user.uid, 'mood_history'));
             await setDoc(moodRef, {
                 mood: mood,
                 input: inputText,
@@ -162,6 +163,9 @@ export default function ReflectPage() {
             });
         }
     };
+    
+    const anyLoading = isLoading || isTranscribing;
+    
     return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
             <Card className="w-full">
