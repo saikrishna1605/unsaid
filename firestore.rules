@@ -108,6 +108,36 @@ service cloud.firestore {
         allow update: if isOwner(userId) && resource.data.userId == userId;
         allow delete: if isOwner(userId);
       }
+
+      /**
+       * @description A user can manage their own learning progress.
+       * @path /users/{userId}/learning_progress/{lessonId}
+       * @allow (create) A user creates progress for a lesson they completed.
+       * @deny (get) A user tries to read another user's progress.
+       * @principle Users own their learning progress and can track their journey.
+       */
+      match /learning_progress/{lessonId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.lessonId == lessonId;
+        allow update: if isOwner(userId) && resource.data.lessonId == lessonId;
+        allow delete: if isOwner(userId);
+      }
+
+      /**
+       * @description A user can manage their own mood history.
+       * @path /users/{userId}/mood_history/{moodId}
+       * @allow (create) A user logs their mood and reflection.
+       * @deny (list) A user tries to access another user's mood history.
+       * @principle Mood tracking is private and belongs exclusively to the user.
+       */
+      match /mood_history/{moodId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
     }
 
     // ----------------------------------------------------------------------
@@ -237,6 +267,36 @@ service cloud.firestore {
     match /news_articles/{newsArticleId} {
       allow get: if true;
       allow list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description All users (even unauthenticated) can read learning tracks, but only admins can manage them.
+     * @path /learning_tracks/{trackId}
+     * @allow (list) Any user lists all available learning tracks.
+     * @deny (create) A regular, non-admin user attempts to create a new learning track.
+     * @principle Segregates public, read-only data and restricts all write operations to privileged admin users.
+     */
+    match /learning_tracks/{trackId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description All authenticated users can read AAC items, but only admins can manage them.
+     * @path /aac_items/{itemId}
+     * @allow (list) Any authenticated user lists all available AAC items.
+     * @deny (create) A regular, non-admin user attempts to create AAC items.
+     * @principle AAC items are publicly readable but admin-managed for quality control.
+     */
+    match /aac_items/{itemId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow create: if isAdmin();
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;

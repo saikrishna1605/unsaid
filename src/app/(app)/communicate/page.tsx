@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Coffee, Apple, Smile, Frown, Bed, Home, Sun, Moon, Volume2, Mic, Eye, Camera, Bot, Loader2, X
+  Coffee, Apple, Smile, Frown, Bed, Home, Sun, Moon, Volume2, Mic, Eye, Camera, Bot, Loader2, X, MessageSquare
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -17,22 +17,33 @@ import { readTextFromImage } from '@/ai/flows/read-text-from-image';
 import { generateEasyReadVersion } from '@/ai/flows/generate-easy-read-version';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { describeSurroundings } from '@/ai/flows/describe-surroundings';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import * as LucideIcons from 'lucide-react';
 
+interface AACItem {
+  id: string;
+  label: string;
+  iconName: string;
+  category?: string;
+  order?: number;
+}
 
-// AAC Tab Component (mostly unchanged)
-const aacItems = [
-  { icon: Coffee, label: 'Drink' },
-  { icon: Apple, label: 'Eat' },
-  { icon: Smile, label: 'Happy' },
-  { icon: Frown, label: 'Sad' },
-  { icon: Bed, label: 'Tired' },
-  { icon: Home, label: 'Home' },
-  { icon: Sun, label: 'Day' },
-  { icon: Moon, label: 'Night' },
-];
+// Icon mapping - maps icon names to actual Lucide components
+const getIconComponent = (iconName: string) => {
+  const IconComponent = (LucideIcons as any)[iconName];
+  return IconComponent || MessageSquare; // Fallback to MessageSquare if icon not found
+};
 
 const AACTab = memo(function AACTab() {
   const [text, setText] = useState('');
+  const firestore = useFirestore();
+  
+  const aacItemsQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'aac_items'), orderBy('order', 'asc')) : null,
+    [firestore]
+  );
+  const { data: aacItems, isLoading } = useCollection<AACItem>(aacItemsQuery);
 
   const handleTap = useCallback((label: string) => {
     setText((prev) => (prev ? `${prev} ${label}` : label));
@@ -58,19 +69,34 @@ const AACTab = memo(function AACTab() {
             <Volume2 />
           </Button>
         </div>
-        <div className="grid grid-cols-4 gap-4">
-          {aacItems.map(({ icon: Icon, label }) => (
-            <Button
-              key={label}
-              variant="outline"
-              className="h-24 flex-col gap-2 text-lg"
-              onClick={() => handleTap(label)}
-            >
-              <Icon className="h-8 w-8" />
-              {label}
-            </Button>
-          ))}
-        </div>
+        {isLoading && (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        )}
+        {!isLoading && aacItems && aacItems.length > 0 && (
+          <div className="grid grid-cols-4 gap-4">
+            {aacItems.map((item) => {
+              const Icon = getIconComponent(item.iconName);
+              return (
+                <Button
+                  key={item.id}
+                  variant="outline"
+                  className="h-24 flex-col gap-2 text-lg"
+                  onClick={() => handleTap(item.label)}
+                >
+                  <Icon className="h-8 w-8" />
+                  {item.label}
+                </Button>
+              );
+            })}
+          </div>
+        )}
+        {!isLoading && (!aacItems || aacItems.length === 0) && (
+          <div className="text-center py-8 text-muted-foreground">
+            No AAC items available. Using default items will be available soon.
+          </div>
+        )}
       </CardContent>
     </Card>
   );

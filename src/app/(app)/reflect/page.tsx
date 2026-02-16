@@ -1,36 +1,90 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Mic, Sparkles, Wind, Send, StopCircle } from 'lucide-react';
+import { Loader2, Mic, Sparkles, Wind, Send, StopCircle, Smile, Frown, Meh, Music } from 'lucide-react';
 import { dailyReflection } from '@/ai/flows/daily-reflection-ai';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { useToast } from '@/hooks/use-toast';
+import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
+
+const moodOptions = [
+    { value: 'positive', label: 'Positive', icon: Smile, color: 'text-green-500' },
+    { value: 'neutral', label: 'Neutral', icon: Meh, color: 'text-yellow-500' },
+    { value: 'negative', label: 'Challenging', icon: Frown, color: 'text-blue-500' },
+];
+
+// Music/soundscape recommendations based on mood
+const moodRecommendations: Record<string, { title: string; description: string; url: string }[]> = {
+    positive: [
+        { title: 'Uplifting Melody', description: 'Bright and energetic tunes', url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk' },
+        { title: 'Nature Sounds', description: 'Birds chirping in the morning', url: 'https://www.youtube.com/watch?v=eKFTSSKCzWA' },
+    ],
+    neutral: [
+        { title: 'Peaceful Piano', description: 'Gentle instrumental music', url: 'https://www.youtube.com/watch?v=lTRiuFIWV54' },
+        { title: 'Ocean Waves', description: 'Calming beach ambience', url: 'https://www.youtube.com/watch?v=V1bFr2SWP1I' },
+    ],
+    negative: [
+        { title: 'Calming Rain', description: 'Soothing rainfall sounds', url: 'https://www.youtube.com/watch?v=q76bMs-NwRk' },
+        { title: 'Meditation Music', description: 'Peaceful and grounding', url: 'https://www.youtube.com/watch?v=lFcSrYw-ARY' },
+    ],
+};
 
 export default function ReflectPage() {
     const { toast } = useToast();
+    const { user } = useUser();
+    const firestore = useFirestore();
+    
     const [isLoading, setIsLoading] = useState(false);
     const [reflection, setReflection] = useState<string | null>(null);
     const [inputText, setInputText] = useState('');
+    const [selectedMood, setSelectedMood] = useState<string | null>(null);
+    const [showMusicRecommendations, setShowMusicRecommendations] = useState(false);
 
     const [isRecording, setIsRecording] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
-    const handleReflection = async (input: string) => {
+    // Save mood to Firebase
+    const saveMood = async (mood: string, reflectionText: string) => {
+        if (!user || !firestore) return;
+        
+        try {
+            const moodRef = doc(firestore, 'users', user.uid, 'mood_history', new Date().toISOString());
+            await setDoc(moodRef, {
+                mood: mood,
+                input: inputText,
+                reflection: reflectionText,
+                timestamp: serverTimestamp(),
+            });
+        } catch (error) {
+            console.error('Error saving mood:', error);
+        }
+    };
+
+    const handleReflection = async (input: string, mood?: string) => {
         if (!input.trim()) {
             toast({ variant: 'destructive', title: 'Input needed', description: 'Please provide something to reflect on.'});
             return;
         }
         setIsLoading(true);
         setReflection(null);
+        setShowMusicRecommendations(false);
 
         try {
             const result = await dailyReflection({ input });
             setReflection(result.reflection);
+            
+            // Save mood if provided
+            if (mood || selectedMood) {
+                await saveMood(mood || selectedMood || 'neutral', result.reflection);
+                setShowMusicRecommendations(true);
+            }
         } catch (error) {
             console.error('Error generating reflection:', error);
             toast({
@@ -108,9 +162,6 @@ export default function ReflectPage() {
             });
         }
     };
-    
-    const anyLoading = isLoading || isTranscribing;
-
     return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
             <Card className="w-full">
@@ -124,6 +175,28 @@ export default function ReflectPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                    {/* Mood Selection */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">How are you feeling today?</label>
+                        <div className="flex gap-2">
+                            {moodOptions.map((mood) => {
+                                const Icon = mood.icon;
+                                return (
+                                    <Button
+                                        key={mood.value}
+                                        variant={selectedMood === mood.value ? 'default' : 'outline'}
+                                        onClick={() => setSelectedMood(mood.value)}
+                                        disabled={anyLoading || isRecording}
+                                        className={cn('flex-1', selectedMood === mood.value && 'ring-2 ring-offset-2')}
+                                    >
+                                        <Icon className={cn('mr-2 h-4 w-4', mood.color)} />
+                                        {mood.label}
+                                    </Button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
                     <div className="space-y-2">
                         <Textarea 
                             placeholder={isRecording ? "Recording your thoughts..." : (isTranscribing ? "Transcribing..." : "How are you feeling today?")}
@@ -142,7 +215,7 @@ export default function ReflectPage() {
                             </Button>
                             <Button 
                                 variant="secondary"
-                                onClick={() => handleReflection('The user chose to share a moment of silence.')}
+                                onClick={() => handleReflection('The user chose to share a moment of silence.', selectedMood || 'neutral')}
                                 disabled={anyLoading || isRecording}
                             >
                                 <Wind className="mr-2 h-4 w-4"/>
@@ -186,6 +259,35 @@ export default function ReflectPage() {
                             </CardHeader>
                             <CardContent>
                                 <p className="whitespace-pre-wrap leading-relaxed">{reflection}</p>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Music/Soundscape Recommendations */}
+                    {showMusicRecommendations && selectedMood && moodRecommendations[selectedMood] && (
+                        <Card className="bg-primary/5">
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <Music className="h-5 w-5" />
+                                    Recommended for You
+                                </CardTitle>
+                                <CardDescription>
+                                    Based on your current mood, here are some soundscapes that might help.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {moodRecommendations[selectedMood].map((rec, idx) => (
+                                    <a 
+                                        key={idx}
+                                        href={rec.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="block p-3 rounded-lg border hover:bg-accent transition-colors"
+                                    >
+                                        <div className="font-medium">{rec.title}</div>
+                                        <div className="text-sm text-muted-foreground">{rec.description}</div>
+                                    </a>
+                                ))}
                             </CardContent>
                         </Card>
                     )}
