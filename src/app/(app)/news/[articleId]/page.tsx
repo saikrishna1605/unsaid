@@ -15,7 +15,17 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { getArticleById, type Article } from '@/lib/articles';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, Timestamp } from 'firebase/firestore';
+
+interface NewsArticle {
+  id: string;
+  title: string;
+  imageUrl: string;
+  imageHint?: string;
+  content: string;
+  createdAt?: Timestamp;
+}
 
 type ModalContent = {
   type: 'audio' | 'easyRead' | 'keyFacts' | 'signCards';
@@ -27,29 +37,30 @@ export default function NewsArticlePage() {
   const router = useRouter();
   const articleId = params.articleId as string;
   const { toast } = useToast();
+  const firestore = useFirestore();
   
-  const [article, setArticle] = useState<Article | null>(null);
+  const articleDocRef = useMemoFirebase(
+    () => (firestore && articleId ? doc(firestore, 'news_articles', articleId) : null),
+    [firestore, articleId]
+  );
+  const { data: article, isLoading: isArticleLoading, error } = useDoc<NewsArticle>(articleDocRef);
+  
   const [summaryData, setSummaryData] = useState<SummarizeArticleWithSignCardsOutput | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [modalContent, setModalContent] = useState<ModalContent>(null);
 
   useEffect(() => {
-    if (articleId) {
-      const foundArticle = getArticleById(articleId);
-      if (foundArticle) {
-        setArticle(foundArticle);
-      } else {
-        // Handle article not found, maybe redirect
-        router.push('/news');
-      }
+    if (error || (articleDocRef && !isArticleLoading && !article)) {
+      // Article not found or permission denied, redirect
+      router.push('/news');
     }
-  }, [articleId, router]);
+  }, [error, article, isArticleLoading, router, articleDocRef]);
   
   useEffect(() => {
     if (!article) return;
 
     const getSummary = async () => {
-      setIsLoading(true);
+      setIsLoadingSummary(true);
       try {
         const result = await summarizeArticleWithSignCards({ articleText: article.content });
         setSummaryData(result);
@@ -61,7 +72,7 @@ export default function NewsArticlePage() {
           description: 'Could not load the news summary. Please try again later.',
         });
       } finally {
-        setIsLoading(false);
+        setIsLoadingSummary(false);
       }
     };
     getSummary();
@@ -113,10 +124,14 @@ export default function NewsArticlePage() {
       { type: 'signCards', icon: Hand, label: 'Sign Cards' },
   ];
 
-  if (!article) {
+  if (isArticleLoading) {
       return (
         <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin" /></div>
       );
+  }
+
+  if (!article) {
+      return null; // Will redirect in useEffect
   }
 
   return (
@@ -151,9 +166,9 @@ export default function NewsArticlePage() {
                       variant="outline"
                       className="h-20 flex-col gap-1"
                       onClick={() => setModalContent({ type, title: label })}
-                      disabled={isLoading}
+                      disabled={isLoadingSummary}
                     >
-                      {isLoading ? <Loader2 className="h-5 w-5 animate-spin"/> : <Icon className="h-5 w-5"/>}
+                      {isLoadingSummary ? <Loader2 className="h-5 w-5 animate-spin"/> : <Icon className="h-5 w-5"/>}
                       {label}
                     </Button>
                   ))}

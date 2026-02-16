@@ -3,37 +3,49 @@
 import { useParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { BookOpen, Loader2 } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
 import Link from 'next/link';
 
 interface Lesson {
     id: string;
     title: string;
     track: string;
+    trackSlug?: string;
     text: string;
 }
 
-const learningTracks: {[key: string]: string} = {
-    "digital-skills": "Digital Skills",
-    "communication-confidence": "Communication Confidence",
-    "career-skills": "Career Skills",
-    "academic-basics": "Academic Basics",
-    "sign-language": "Sign Language",
-    "life-skills": "Life Skills",
-};
+interface LearningTrack {
+    id: string;
+    title: string;
+    slug: string;
+    description: string;
+}
 
 export default function TrackPage() {
     const params = useParams();
     const trackSlug = params.track as string;
-    const trackTitle = learningTracks[trackSlug] || "Learning Track";
-
     const firestore = useFirestore();
-    const lessonsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'lessons'), where('track', '==', trackTitle)) : null,
-        [firestore, trackTitle]
+
+    // Fetch track info by slug
+    const trackQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'learning_tracks'), where('slug', '==', trackSlug)) : null,
+        [firestore, trackSlug]
     );
-    const { data: lessons, isLoading } = useCollection<Lesson>(lessonsQuery);
+    const { data: trackData, isLoading: isTrackLoading } = useCollection<LearningTrack>(trackQuery);
+    const track = trackData && trackData.length > 0 ? trackData[0] : null;
+
+    // Fetch lessons for this track (parallel with track query)
+    const lessonsQuery = useMemoFirebase(
+        () => firestore ? query(
+            collection(firestore, 'lessons'), 
+            where('trackSlug', '==', trackSlug)
+        ) : null,
+        [firestore, trackSlug]
+    );
+    const { data: lessons, isLoading: isLessonsLoading } = useCollection<Lesson>(lessonsQuery);
+
+    const isLoading = isTrackLoading || isLessonsLoading;
 
     return (
         <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -42,8 +54,12 @@ export default function TrackPage() {
                     <Link href="/learn" className="text-sm text-muted-foreground hover:underline mb-2">
                         &larr; Back to Learning Tracks
                     </Link>
-                    <CardTitle className="text-3xl font-headline">{trackTitle}</CardTitle>
-                    <CardDescription>Lessons to help you build your skills.</CardDescription>
+                    <CardTitle className="text-3xl font-headline">
+                        {track?.title || 'Learning Track'}
+                    </CardTitle>
+                    <CardDescription>
+                        {track?.description || 'Lessons to help you build your skills.'}
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isLoading && (
@@ -71,7 +87,9 @@ export default function TrackPage() {
                         <div className="text-center py-16 border-2 border-dashed border-muted-foreground/30 rounded-lg">
                             <BookOpen className="mx-auto h-12 w-12 text-muted-foreground" />
                             <h3 className="text-xl font-semibold text-card-foreground mt-4">No lessons here yet</h3>
-                            <p className="text-muted-foreground mt-2">Check back soon for new content in the {trackTitle} track!</p>
+                            <p className="text-muted-foreground mt-2">
+                                Check back soon for new content in the {track?.title || 'learning track'}!
+                            </p>
                         </div>
                     )}
                 </CardContent>

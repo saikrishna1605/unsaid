@@ -1,8 +1,8 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft, BookCheck, PartyPopper } from 'lucide-react';
@@ -18,11 +18,12 @@ interface Lesson {
     title: string;
     text: string;
     track: string;
+    trackSlug?: string;
 }
 
 type Quiz = GenerateLessonQuizOutput['quiz'];
 
-function QuizPlayer({ quiz, onFinish }: { quiz: Quiz, onFinish: () => void }) {
+function QuizPlayer({ quiz, onFinish }: { quiz: Quiz, onFinish: (score: number, total: number) => void }) {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [score, setScore] = useState(0);
@@ -45,8 +46,8 @@ function QuizPlayer({ quiz, onFinish }: { quiz: Quiz, onFinish: () => void }) {
         if (currentQuestionIndex < quiz.length - 1) {
             setCurrentQuestionIndex(i => i + 1);
         } else {
-            // This is the last question, so we finish.
-            onFinish();
+            // This is the last question, so we finish and pass the score
+            onFinish(score + (selectedAnswer === currentQuestion.correctAnswerIndex ? 1 : 0), quiz.length);
         }
     };
     
@@ -64,7 +65,7 @@ function QuizPlayer({ quiz, onFinish }: { quiz: Quiz, onFinish: () => void }) {
                     <p className="text-xl">You scored {score} out of {quiz.length}!</p>
                 </CardContent>
                 <CardFooter>
-                     <Button onClick={onFinish} className="w-full">Back to Lesson</Button>
+                     <Button onClick={() => onFinish(score, quiz.length)} className="w-full">Back to Lesson</Button>
                 </CardFooter>
             </Card>
          )
@@ -119,14 +120,13 @@ export default function LessonPage() {
     const params = useParams();
     const router = useRouter();
     const { toast } = useToast();
+    const { user } = useUser();
     
     const trackSlug = params.track as string;
     const lessonId = params.lessonId as string;
 
     const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
     const [quiz, setQuiz] = useState<Quiz | null>(null);
-    const [showFinalScore, setShowFinalScore] = useState(false);
-    const [finalScore, setFinalScore] = useState({score: 0, total: 0});
 
     const firestore = useFirestore();
     const lessonDocRef = useMemoFirebase(
@@ -135,12 +135,42 @@ export default function LessonPage() {
     );
     const { data: lesson, isLoading } = useDoc<Lesson>(lessonDocRef);
 
+    // Save progress to Firebase
+    const saveProgress = async (score: number, total: number) => {
+        if (!user || !firestore || !lesson) return;
+        
+        try {
+            const progressRef = doc(firestore, 'users', user.uid, 'learning_progress', lessonId);
+            await setDoc(progressRef, {
+                lessonId: lessonId,
+                lessonTitle: lesson.title,
+                track: lesson.track,
+                trackSlug: lesson.trackSlug || trackSlug,
+                score: score,
+                totalQuestions: total,
+                completedAt: serverTimestamp(),
+                lastAttemptAt: serverTimestamp(),
+            });
+            
+            toast({
+                title: 'Progress Saved!',
+                description: `You scored ${score} out of ${total}.`,
+            });
+        } catch (error) {
+            console.error('Error saving progress:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Could not save your progress.',
+            });
+        }
+    };
+
     const handleTakeQuiz = async () => {
         if (!lesson) return;
         
         setIsGeneratingQuiz(true);
         setQuiz(null);
-        setShowFinalScore(false);
 
         try {
             const result = await generateLessonQuiz({ lessonText: lesson.text });
@@ -155,6 +185,11 @@ export default function LessonPage() {
         } finally {
             setIsGeneratingQuiz(false);
         }
+    };
+
+    const handleQuizFinish = async (score: number, total: number) => {
+        await saveProgress(score, total);
+        setQuiz(null);
     };
     
     if (isLoading) {
@@ -188,9 +223,7 @@ export default function LessonPage() {
                     </CardFooter>
                 </Card>
             ) : (
-                <QuizPlayer quiz={quiz} onFinish={() => {
-                    setQuiz(null);
-                }} />
+                <QuizPlayer quiz={quiz} onFinish={handleQuizFinish} />
             )}
         </div>
     );
