@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,19 +31,19 @@ const aacItems = [
   { icon: Moon, label: 'Night' },
 ];
 
-function AACTab() {
+const AACTab = memo(function AACTab() {
   const [text, setText] = useState('');
 
-  const handleTap = (label: string) => {
+  const handleTap = useCallback((label: string) => {
     setText((prev) => (prev ? `${prev} ${label}` : label));
-  };
+  }, []);
   
-  const handleSpeak = () => {
+  const handleSpeak = useCallback(() => {
     if (typeof window !== 'undefined' && text) {
       const utterance = new SpeechSynthesisUtterance(text);
       window.speechSynthesis.speak(utterance);
     }
-  };
+  }, [text]);
 
   return (
     <Card className="border-none shadow-none">
@@ -74,7 +74,7 @@ function AACTab() {
       </CardContent>
     </Card>
   );
-}
+});
 
 // Deaf/HoH Tab with Audio Transcription
 function DeafHoHTab() {
