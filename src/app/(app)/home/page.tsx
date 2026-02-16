@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -44,13 +44,13 @@ interface Chat {
   userId: string;
 }
 
-function SubmitButton({ isSending }: { isSending: boolean }) {
+const SubmitButton = memo(function SubmitButton({ isSending }: { isSending: boolean }) {
   return (
     <Button type="submit" size="icon" disabled={isSending} aria-label="Send message" className="shrink-0">
       {isSending ? <Loader2 className="animate-spin" /> : <Send />}
     </Button>
   );
-}
+});
 
 export default function HomePage() {
   const router = useRouter();

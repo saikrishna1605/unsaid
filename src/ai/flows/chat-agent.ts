@@ -78,15 +78,15 @@ const chatFlow = ai.defineFlow(
     // 2. Select the persona based on the tone
     const systemPrompt = AGENT_PERSONAS[tone as keyof typeof AGENT_PERSONAS];
 
-    // 3. Construct history and prompt for the multimodal model
-    const historyForAi = input.history.map(msg => ({
+    // 3. Construct messages and prompt for the multimodal model
+    const messages = input.history.map(msg => ({
         role: msg.role,
-        parts: [
+        content: [
             // Only add text part if content is not empty
             ...(msg.content ? [{ text: msg.content }] : []),
             ...(msg.imageUrl ? [{ media: { url: msg.imageUrl } }] : []),
         ],
-    })).filter(msg => msg.parts.length > 0); // Ensure we don't send empty messages
+    })).filter(msg => msg.content.length > 0); // Ensure we don't send empty messages
 
     const newPromptParts = [];
     if (input.message) {
@@ -100,7 +100,7 @@ const chatFlow = ai.defineFlow(
     const { output } = await ai.generate({
         system: systemPrompt,
         prompt: newPromptParts,
-        history: historyForAi,
+        messages: messages,
     });
 
     return { response: output || 'I am not sure how to respond to that. Could you please rephrase?' };
