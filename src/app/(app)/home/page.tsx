@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useUser, useCollection, useDoc, useFirestore, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc, addDoc, updateDoc, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
+import { useUser, useCollection, useDoc, useFirestore, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { collection, doc, addDoc, updateDoc, serverTimestamp, query, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
 import { chat } from '@/ai/flows/chat-agent';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { useToast } from '@/hooks/use-toast';
@@ -108,7 +108,7 @@ export default function HomePage() {
     router.push('/home');
   };
   
-  const handleDeleteChat = (e: React.MouseEvent, chatIdToDelete: string) => {
+  const handleDeleteChat = async (e: React.MouseEvent, chatIdToDelete: string) => {
     e.stopPropagation();
     e.preventDefault();
     if (!user || !firestore) return;
@@ -116,16 +116,30 @@ export default function HomePage() {
     if (window.confirm('Are you sure you want to delete this chat?')) {
         const chatRef = doc(firestore, 'users', user.uid, 'chats', chatIdToDelete);
         
-        deleteDocumentNonBlocking(chatRef);
+        try {
+            await deleteDoc(chatRef);
 
-        if (chatId === chatIdToDelete) {
-            router.push('/home');
+            toast({
+                title: "Chat Deleted",
+                description: "The conversation has been removed.",
+            });
+
+            if (chatId === chatIdToDelete) {
+                router.push('/home');
+            }
+        } catch (serverError) {
+            console.error("Error deleting chat:", serverError);
+            toast({
+                variant: 'destructive',
+                title: "Deletion Failed",
+                description: "Could not remove the chat. You may not have permission.",
+            });
+            const permissionError = new FirestorePermissionError({
+              path: chatRef.path,
+              operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
         }
-
-        toast({
-            title: "Chat Deleted",
-            description: "The conversation has been removed.",
-        });
     }
   };
 
