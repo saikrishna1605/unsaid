@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useUser, useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, addDoc, updateDoc, serverTimestamp, query, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
+import { useUser, useCollection, useDoc, useFirestore, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, doc, addDoc, updateDoc, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
 import { chat } from '@/ai/flows/chat-agent';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { useToast } from '@/hooks/use-toast';
@@ -108,32 +108,24 @@ export default function HomePage() {
     router.push('/home');
   };
   
-  const handleDeleteChat = async (e: React.MouseEvent, chatIdToDelete: string) => {
+  const handleDeleteChat = (e: React.MouseEvent, chatIdToDelete: string) => {
     e.stopPropagation();
     e.preventDefault();
     if (!user || !firestore) return;
 
     if (window.confirm('Are you sure you want to delete this chat?')) {
-        try {
-            const chatRef = doc(firestore, 'users', user.uid, 'chats', chatIdToDelete);
-            await deleteDoc(chatRef);
-    
-            if (chatId === chatIdToDelete) {
-                router.push('/home');
-            }
-    
-            toast({
-                title: "Chat Deleted",
-                description: "The conversation has been removed.",
-            });
-        } catch (error) {
-            console.error("Error deleting chat:", error);
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Could not delete the chat.",
-            });
+        const chatRef = doc(firestore, 'users', user.uid, 'chats', chatIdToDelete);
+        
+        deleteDocumentNonBlocking(chatRef);
+
+        if (chatId === chatIdToDelete) {
+            router.push('/home');
         }
+
+        toast({
+            title: "Chat Deleted",
+            description: "The conversation has been removed.",
+        });
     }
   };
 
@@ -239,8 +231,11 @@ export default function HomePage() {
     const userMessage: ChatMessage = { 
       role: 'user', 
       content: messageContent,
-      ...(imageData && { imageUrl: imageData }),
     };
+
+    if (imageData) {
+        userMessage.imageUrl = imageData;
+    }
 
     const tempImageData = imageData;
     
